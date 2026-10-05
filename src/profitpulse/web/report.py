@@ -96,40 +96,63 @@ def render_pdf(b: dict[str, Any] | None = None) -> bytes:
 def render_xlsx(b: dict[str, Any] | None = None) -> bytes:
     from openpyxl import Workbook
     from openpyxl.formatting.rule import CellIsRule
-    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
     from openpyxl.utils import get_column_letter
 
     b = b or bundle()
     ov, cur = b["overview"], b["currency"]
     kp = ov["kpis"]
-    ink, teal = "16232C", "0F7B6C"
-    head_font = Font(name="Calibri", bold=True, color="FFFFFF")
-    head_fill = PatternFill("solid", fgColor=ink)
+    # "Slate" palette, shared with the dashboard and the PDF.
+    ink, steel, risk, brass, muted = "16223A", "3D5A84", "C2513A", "22C55E", "6C788D"
+    band_fill = PatternFill("solid", fgColor="F5F7FA")          # zebra rows
+    rule = Side(style="thin", color="E2E6ED")
+    font = "Calibri"
+    head_font = Font(name=font, bold=True, color="FFFFFF", size=10)
+    head_fill = PatternFill("solid", fgColor="1E2B45")
+    head_border = Border(bottom=Side(style="medium", color="3D5A84"))
+    body_font = Font(name=font, size=10, color=ink)
     money_fmt, pct_fmt, int_fmt, dec_fmt = '#,##0', '0.0%', '#,##0', '#,##0.0'
 
     wb = Workbook()
 
     def sheet(title: str, headers: list[tuple[str, str, int]], rows: list[list[Any]], note: str | None = None):
         ws = wb.create_sheet(title)
-        r0 = 1
+        ws.sheet_properties.tabColor = steel
+        ncol = max(len(headers), 4)
+        # Title band: sheet name on navy, the note underneath in muted italics.
+        ws.cell(1, 1, title).font = Font(name=font, bold=True, size=14, color="FFFFFF")
+        for j in range(1, ncol + 1):
+            ws.cell(1, j).fill = head_fill
+        ws.cell(1, 1).alignment = Alignment(vertical="center", indent=1)
+        ws.row_dimensions[1].height = 30
+        r0 = 3
         if note:
-            ws.cell(1, 1, note).font = Font(italic=True, color="6B7A82")
-            ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=max(len(headers), 4))
-            ws.cell(1, 1).alignment = Alignment(wrap_text=True, vertical="top")
-            ws.row_dimensions[1].height = 30
-            r0 = 3
+            ws.cell(2, 1, note).font = Font(name=font, italic=True, size=9, color=muted)
+            ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=ncol)
+            ws.cell(2, 1).alignment = Alignment(wrap_text=True, vertical="center", indent=1)
+            ws.row_dimensions[2].height = 32
+            r0 = 4
         for j, (name, fmt, width) in enumerate(headers, 1):
             c = ws.cell(r0, j, name)
-            c.font, c.fill, c.alignment = head_font, head_fill, Alignment(horizontal="center", vertical="center", wrap_text=True)
+            c.font, c.fill, c.border = head_font, head_fill, head_border
+            c.alignment = Alignment(horizontal="left" if not fmt else "right", vertical="center", wrap_text=True, indent=1 if not fmt else 0)
             ws.column_dimensions[get_column_letter(j)].width = width
+        ws.row_dimensions[r0].height = 30
         for i, row in enumerate(rows, r0 + 1):
+            zebra = (i - r0) % 2 == 0
             for j, val in enumerate(row, 1):
                 c = ws.cell(i, j, val)
+                c.font, c.border = body_font, Border(bottom=rule)
+                if zebra:
+                    c.fill = band_fill
                 fmt = headers[j - 1][1]
                 if fmt:
                     c.number_format = fmt
                 if isinstance(val, str) and len(val) > 60:
                     c.alignment = Alignment(wrap_text=True, vertical="top")
+                else:
+                    c.alignment = Alignment(vertical="top", indent=0 if fmt else 1)
+            ws.cell(i, 1).font = Font(name=font, size=10, bold=True, color=ink)
         ws.freeze_panes = ws.cell(r0 + 1, 1)
         ws.auto_filter.ref = f"A{r0}:{get_column_letter(len(headers))}{r0 + len(rows)}"
         ws.sheet_view.showGridLines = False
@@ -139,39 +162,68 @@ def render_xlsx(b: dict[str, Any] | None = None) -> bytes:
     ws = wb.active
     ws.title = "Summary"
     ws.sheet_view.showGridLines = False
-    ws["A1"] = "ProfitPulse business report"
-    ws["A1"].font = Font(name="Calibri", size=18, bold=True, color=ink)
-    ws["A2"] = f"Data {kp['period_start']['value_text']} to {kp['as_of_date']['value_text']}   |   Currency {cur}   |   Generated {b['generated_at']}"
-    ws["A2"].font = Font(italic=True, color="6B7A82")
+    ws.sheet_properties.tabColor = ink
+    for r in (1, 2, 3):                                     # navy cover band across the top
+        for col in range(1, 5):
+            ws.cell(r, col).fill = head_fill
+    ws["A1"] = "ProfitPulse"
+    ws["A1"].font = Font(name=font, size=10, bold=True, color="22C55E")
+    ws["A2"] = "Business report"
+    ws["A2"].font = Font(name=font, size=20, bold=True, color="FFFFFF")
+    ws["A3"] = f"Data {kp['period_start']['value_text']} to {kp['as_of_date']['value_text']}   |   Currency {cur}   |   Generated {b['generated_at']}"
+    ws["A3"].font = Font(name=font, size=9, color="A9B5C8")
+    for r, hgt in ((1, 24), (2, 34), (3, 24)):
+        ws.row_dimensions[r].height = hgt
+        ws.cell(r, 1).alignment = Alignment(vertical="center", indent=1)
+    for col in range(1, 5):
+        ws.cell(4, col).fill = PatternFill("solid", fgColor=brass)
+    ws.row_dimensions[4].height = 3
     h = headline(ov)
-    ws["A4"] = h["lead"]
-    ws["A4"].font = Font(bold=True, size=12, color="CF2E5E")
-    ws["A5"] = h["support"]
-    ws.merge_cells("A4:D4")
-    ws.merge_cells("A5:D5")
-    ws["A5"].alignment = Alignment(wrap_text=True, vertical="top")
-    ws.row_dimensions[5].height = 32
-    row = 7
+    ws["A6"] = h["lead"]
+    ws["A6"].font = Font(name=font, bold=True, size=13, color=ink)
+    ws["A7"] = h["support"]
+    ws["A7"].font = Font(name=font, size=10, color=muted)
+    ws.merge_cells("A6:D6")
+    ws.merge_cells("A7:D7")
+    ws["A6"].alignment = Alignment(wrap_text=True, vertical="center", indent=1)
+    ws["A7"].alignment = Alignment(wrap_text=True, vertical="top", indent=1)
+    ws.row_dimensions[6].height = 36
+    ws.row_dimensions[7].height = 32
+    row = 9
     section = None
     for key, k in kp.items():
         if k["section"] == "Meta":
             continue
         if k["section"] != section:
             section = k["section"]
-            ws.cell(row, 1, section).font = Font(bold=True, color=teal)
+            if row > 9:
+                row += 1
+            for col in range(1, 4):
+                ws.cell(row, col).border = Border(bottom=Side(style="medium", color=ink))
+            ws.cell(row, 1, section).font = Font(name=font, bold=True, size=11, color=steel)
+            ws.cell(row, 1).alignment = Alignment(indent=1)
+            ws.row_dimensions[row].height = 22
             row += 1
-        ws.cell(row, 1, k["label"])
+        bad = key in ("leakage_total", "leakage_annualised")
+        lc = ws.cell(row, 1, k["label"])
+        lc.font, lc.alignment = Font(name=font, size=10, color=ink), Alignment(indent=1)
         c = ws.cell(row, 2, k["value_numeric"])
         c.number_format = {"currency": money_fmt, "percent": pct_fmt, "count": int_fmt}.get(k["unit"], "General")
-        ws.cell(row, 3, cur if k["unit"] == "currency" else None).font = Font(color="6B7A82")
+        c.font = Font(name=font, size=10, bold=True, color=risk if bad else ink)
+        uc = ws.cell(row, 3, cur if k["unit"] == "currency" else None)
+        uc.font = Font(name=font, size=9, color=muted)
+        for col in range(1, 4):
+            ws.cell(row, col).border = Border(bottom=rule)
         row += 1
     ws.column_dimensions["A"].width = 62
     ws.column_dimensions["B"].width = 20
     ws.column_dimensions["C"].width = 8
+    ws.column_dimensions["D"].width = 30
 
     # Findings
     findings = data.anomalies()
-    sev_fill = {"critical": "F6C9D6", "high": "FBE0B8", "medium": "FFF1C2"}
+    sev_fill = {"critical": "F8E6E1", "high": "F6ECD9", "medium": "EAEEF4"}
+    sev_font = {"critical": risk, "high": "82560C", "medium": muted}
     _, r0 = sheet("Findings", [
         ("Severity", "", 11), ("Entity", "", 22), ("Check", "", 26), ("Metric", "", 20), ("Observed", "0.0000", 12),
         ("Peer / own baseline", "0.0000", 14), ("Robust z", dec_fmt, 10), ("Exposure (" + cur + ")", money_fmt, 16),
@@ -183,6 +235,7 @@ def render_xlsx(b: dict[str, Any] | None = None) -> bytes:
     ws_f = wb["Findings"]
     for i, a in enumerate(findings, r0 + 1):
         ws_f.cell(i, 1).fill = PatternFill("solid", fgColor=sev_fill.get(a["severity"], "FFFFFF"))
+        ws_f.cell(i, 1).font = Font(name=font, size=10, bold=True, color=sev_font.get(a["severity"], ink))
         ws_f.row_dimensions[i].height = 48
 
     lk = b["leakage"]
@@ -202,7 +255,8 @@ def render_xlsx(b: dict[str, Any] | None = None) -> bytes:
           r["operational_risk"], r["anomaly_count"]] for r in sc],
         note="Score = 100 x weighted robust z-scores vs the other branches (typical 0.5, far worse 0, far better 1) of margin, discount rate, return rate, shrink rate and growth. Weights: "
              + ", ".join(f"{k} {v['weight']:.0%}" for k, v in b["branches"]["weights"]["components"].items()))
-    wsb.conditional_formatting.add(f"L{r0 + 1}:L{r0 + len(sc)}", CellIsRule(operator="equal", formula=['"weak"'], fill=PatternFill("solid", bgColor="F6C9D6")))
+    wsb.conditional_formatting.add(f"L{r0 + 1}:L{r0 + len(sc)}", CellIsRule(operator="equal", formula=['"weak"'], fill=PatternFill("solid", bgColor="F8E6E1"),
+                                                                                         font=Font(color=risk, bold=True)))
 
     sup = b["suppliers"]["scorecards"]
     sheet("Suppliers", [
@@ -242,12 +296,18 @@ def render_xlsx(b: dict[str, Any] | None = None) -> bytes:
 
     ws = wb.create_sheet("Methodology")
     ws.sheet_view.showGridLines = False
+    ws.sheet_properties.tabColor = muted
     ws.column_dimensions["A"].width = 130
     ws["A1"] = "Limitations and method notes"
-    ws["A1"].font = Font(bold=True, size=14, color=ink)
+    ws["A1"].font = Font(name=font, bold=True, size=14, color="FFFFFF")
+    ws["A1"].fill = head_fill
+    ws["A1"].alignment = Alignment(vertical="center", indent=1)
+    ws.row_dimensions[1].height = 30
     for i, text in enumerate(LIMITATIONS, 3):
-        ws.cell(i, 1, text).alignment = Alignment(wrap_text=True, vertical="top")
-        ws.row_dimensions[i].height = 34
+        c = ws.cell(i, 1, text)
+        c.font, c.border = Font(name=font, size=10, color=ink), Border(bottom=rule)
+        c.alignment = Alignment(wrap_text=True, vertical="center", indent=1)
+        ws.row_dimensions[i].height = 36
 
     buf = io.BytesIO()
     wb.save(buf)

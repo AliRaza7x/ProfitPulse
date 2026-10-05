@@ -281,6 +281,10 @@ A hosted version that connects to a retailer's POS, ERP and purchasing exports; 
 alerts at purchase time rather than after the fact; configurable thresholds per business; stock-on-hand ingestion to turn the inventory proxies into real days-of-cover; and a
 benchmark against anonymised peers. The engineering here (replayable events, quarantine, reconciled layers, explainable detection) is the part that has to be right before any of that.
 
+## Author
+
+Built by **Ali Raza**.
+
 ## Licences
 
 Fonts are bundled under the SIL Open Font License (see `src/profitpulse/web/static/fonts/OFL-*.txt`). No licence has been chosen for this repository's code yet.

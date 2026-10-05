@@ -4,81 +4,111 @@
 <meta charset="utf-8">
 <title>ProfitPulse business report</title>
 <style>
-@font-face { font-family: "Bricolage"; src: url("fonts/BricolageGrotesque.ttf"); font-weight: 200 800; font-stretch: 75% 100%; }
-@font-face { font-family: "Source Serif"; src: url("fonts/SourceSerif4.ttf"); font-weight: 200 900; font-style: normal; }
-@font-face { font-family: "Source Serif"; src: url("fonts/SourceSerif4-Italic.ttf"); font-weight: 200 900; font-style: italic; }
-:root { --ink:#16232C; --teal:#0F7B6C; --rasp:#CF2E5E; --amber:#B07F00; --muted:#5F6E76; --rule:#CBD3CF; --wash:#EDF1EE; }
-@page { size: A4; margin: 22mm 18mm 20mm 18mm;
-  @bottom-left { content: "ProfitPulse business report"; font: 7.5pt "Bricolage"; color: #5F6E76; }
-  @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 7.5pt "Bricolage"; color: #5F6E76; } }
-@page :first { margin: 0; @bottom-left { content: none; } @bottom-right { content: none; } }
+/* "Slate" report theme: matches the live dashboard (slate navy, slate blue data, brick risk, ochre watch, green live accent). */
+@font-face { font-family: "Outfit"; src: url("fonts/Outfit.ttf"); font-weight: 100 900; }
+:root { --ink:#16223A; --ink2:#3D4A60; --steel:#3D5A84; --risk:#C2513A; --watch:#B47A22; --brass:#3D5A84; --muted:#6C788D;
+        --rule:#E2E6ED; --rule2:#CDD4DF; --wash:#F5F7FA; --navy:#1E2B45; --go:#22C55E; }
+@page { size: A4; margin: 24mm 18mm 20mm 18mm;
+  @top-left { content: "ProfitPulse"; font: 600 7.5pt "Outfit"; color: #16223A; vertical-align: bottom; padding-bottom: 3mm; }
+  @top-right { content: "Business report"; font: 7.5pt "Outfit"; color: #6C788D; vertical-align: bottom; padding-bottom: 3mm; }
+  @bottom-left { content: string(chapter); font: 7.5pt "Outfit"; color: #6C788D; }
+  @bottom-right { content: counter(page) " / " counter(pages); font: 600 7.5pt "Outfit"; color: #16223A; } }
+@page :first { margin: 0; @top-left { content: none; } @top-right { content: none; } @bottom-left { content: none; } @bottom-right { content: none; } }
 * { box-sizing: border-box; }
-body { font-family: "Source Serif", Georgia, serif; font-size: 9.6pt; line-height: 1.5; color: var(--ink); margin: 0; }
-h1, h2, h3, .sans { font-family: "Bricolage", Arial, sans-serif; }
-h2 { font-size: 17pt; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 3mm; padding-top: 2mm; break-after: avoid; }
-h3 { font-size: 10.5pt; font-weight: 700; margin: 6mm 0 2mm; break-after: avoid; }
-p { margin: 0 0 2.6mm; max-width: 150mm; }
+html { font-variant-numeric: lining-nums tabular-nums; }
+body { font-family: "Outfit", "Helvetica Neue", Arial, sans-serif; font-size: 9.2pt; line-height: 1.55; color: var(--ink); margin: 0; counter-reset: chapter; }
+h1, h2, h3, .sans { font-family: "Outfit", Arial, sans-serif; }
+h2 { string-set: chapter content(text); counter-increment: chapter; position: relative; font-size: 20pt; font-weight: 500; letter-spacing: -0.035em; margin: 0 0 4mm; padding-top: 7mm; break-after: avoid; }
+h2::before { content: counter(chapter, decimal-leading-zero); position: absolute; top: 0; left: 0; font-size: 7.5pt; font-weight: 600; letter-spacing: 0.02em; color: var(--brass); }
+h2::after { content: ""; position: absolute; top: 4.3mm; left: 0; width: 9mm; height: 0.5mm; background: var(--brass); }
+h3 { font-size: 10pt; font-weight: 600; margin: 7mm 0 2mm; break-after: avoid; }
+p { margin: 0 0 2.6mm; max-width: 152mm; color: var(--ink2); }
 section { break-before: page; }
-.lede { font-size: 12pt; line-height: 1.45; max-width: 150mm; }
+.lede { font-size: 11.5pt; line-height: 1.5; max-width: 152mm; color: var(--ink); }
 .muted { color: var(--muted); }
-.note { font-size: 8.4pt; color: var(--muted); max-width: 150mm; }
+.note { font-size: 7.9pt; color: var(--muted); max-width: 152mm; }
 
-/* cover */
-.cover { height: 297mm; padding: 26mm 20mm 0 20mm; background: var(--wash); position: relative; }
-.cover .brand { font: 700 11pt "Bricolage"; letter-spacing: 0.01em; }
-.cover h1 { font-size: 40pt; line-height: 1.02; letter-spacing: -0.025em; margin: 38mm 0 6mm; font-weight: 800; max-width: 150mm; }
-.cover .lead { font-size: 14pt; line-height: 1.4; max-width: 150mm; margin-bottom: 4mm; }
-.cover .support { font-size: 11pt; max-width: 150mm; color: var(--muted); }
-.cover .meta { position: absolute; left: 20mm; bottom: 24mm; font: 9pt "Bricolage"; color: var(--muted); line-height: 1.6; }
-.cover .rule { width: 36mm; height: 2.4mm; background: var(--rasp); margin-top: 8mm; }
+/* cover: full-bleed navy with a faint dot grid */
+.cover { height: 297mm; padding: 24mm 22mm 0 22mm; position: relative; color: #fff; background-color: var(--navy);
+  background-image: radial-gradient(circle, rgba(255,255,255,.10) 0.35mm, transparent 0.45mm); background-size: 6mm 6mm; }
+.cover .veil { position: absolute; left: 0; right: 0; bottom: 0; height: 190mm; background: linear-gradient(180deg, rgba(30,43,69,0), #1E2B45 55%); }
+.cover .inner { position: relative; }
+.cover .brand { display: flex; align-items: center; font: 600 13pt "Outfit"; letter-spacing: -0.03em; } .cover .brand span { font-weight: 300; color: #B9C6DA; }
+.cover .brand svg { width: 13mm; height: 7mm; margin-right: 2.5mm; }
+.cover .kicker { font: 400 9pt "Outfit"; color: #B9C6DA; margin-top: 46mm; }
+.cover h1 { font-size: 42pt; line-height: 1.02; letter-spacing: -0.045em; margin: 4mm 0 8mm; font-weight: 500; max-width: 150mm; color: #fff; }
+.cover .lead { font-size: 13.5pt; line-height: 1.42; max-width: 148mm; margin-bottom: 4mm; color: #fff; }
+.cover .support { font-size: 10.5pt; max-width: 148mm; color: #A9B5C8; }
+.cover .rule { width: 18mm; height: 0.7mm; background: #22C55E; margin-top: 10mm; }
+.cover .kpis { position: absolute; left: 22mm; right: 22mm; bottom: 46mm; display: flex; padding: 0 6mm 5mm; border-radius: 5mm; background: #26364F; border: 0.3mm solid rgba(255,255,255,.08); }
+.cover .kpis div { flex: 1; padding: 5mm 4mm 0 0; font: 8pt "Outfit"; color: #A9B5C8; }
+.cover .kpis div + div { padding-left: 5mm; border-left: 0.3mm solid rgba(255,255,255,.12); }
+.cover .kpis b { display: block; margin-top: 1.5mm; font: 500 19pt "Outfit"; letter-spacing: -0.035em; color: #fff; }
+.cover .kpis .risk b { color: #EE8369; }
+.cover .meta { position: absolute; left: 22mm; right: 22mm; bottom: 20mm; display: flex; font: 8pt "Outfit"; color: #A9B5C8; line-height: 1.5; }
+.cover .meta div { flex: 1; } .cover .meta b { display: block; color: #fff; font-weight: 500; }
 
-/* ledger: label ..... value */
-table.ledger { width: 100%; border-collapse: collapse; margin: 2mm 0 4mm; }
-table.ledger td { padding: 0.9mm 0; border-bottom: 0.4mm dotted #9AA7A0; }
+/* ledger: label .... value */
+table.ledger { width: 100%; border-collapse: collapse; margin: 3mm 0 4mm; }
+table.ledger td { padding: 1.05mm 0; border-bottom: 0.25mm solid var(--rule); color: var(--ink2); }
 table.ledger td.l { width: 70%; }
-table.ledger td.v { text-align: right; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
-table.ledger tr.group td { border: 0; padding-top: 4mm; font: 700 9pt "Bricolage"; color: var(--teal); }
+table.ledger td.v { text-align: right; font-weight: 600; color: var(--ink); }
+table.ledger tr.group td { border-bottom: 0.35mm solid var(--ink); padding-top: 4mm; font: 600 8pt "Outfit"; color: var(--steel); }
 
 /* data tables */
-table.data { width: 100%; border-collapse: collapse; font-size: 7.9pt; margin: 2mm 0 4mm; font-variant-numeric: lining-nums tabular-nums; }
-table.data th { text-align: right; font: 600 7.4pt "Bricolage"; padding: 1.4mm 1.6mm; border-bottom: 0.5mm solid var(--ink); vertical-align: bottom; }
-table.data td { padding: 1.1mm 1.6mm; border-bottom: 0.25mm solid var(--rule); text-align: right; vertical-align: top; white-space: nowrap; }
+table.data { width: 100%; border-collapse: collapse; font-size: 7.7pt; margin: 2mm 0 4mm; }
+table.data th { text-align: right; font: 500 7pt "Outfit"; color: var(--muted); padding: 1.6mm 1.6mm; border-bottom: 0.35mm solid var(--ink); vertical-align: bottom; }
+table.data td { padding: 1.3mm 1.6mm; border-bottom: 0.2mm solid var(--rule); text-align: right; vertical-align: top; white-space: nowrap; }
+table.data tr:nth-child(odd) td { background: #F7F8FA; }
 table.data td.t { white-space: normal; }
 table.data th:first-child, table.data td:first-child, table.data .t { text-align: left; }
+table.data td:first-child { font-weight: 600; }
 table.data tr { break-inside: avoid; }
-.band-weak { color: var(--rasp); font-weight: 700; } .band-watch { color: var(--amber); font-weight: 700; } .band-strong { color: var(--teal); font-weight: 700; }
+.band-weak, .fail { color: var(--risk); font-weight: 600; } .band-watch, .warn { color: var(--watch); font-weight: 600; } .band-strong, .pass { color: var(--steel); font-weight: 600; }
 
 /* findings */
-.finding { break-inside: avoid; border-left: 1.4mm solid var(--rasp); padding: 0 0 0 4mm; margin: 0 0 6mm; }
-.finding.high { border-color: #D99A0B; } .finding.medium { border-color: #B8C2BD; }
-.finding .head { font: 700 10.5pt "Bricolage"; display: flex; justify-content: space-between; }
-.finding .sev { font: 600 8pt "Bricolage"; color: var(--rasp); }
-.finding.high .sev { color: var(--amber); } .finding.medium .sev { color: var(--muted); }
-.finding p { margin: 1.2mm 0; font-size: 9.4pt; }
-.finding svg { width: 150mm; height: auto; display: block; margin-top: 1mm; }
+.finding { break-inside: avoid; background: var(--wash); border: 0.25mm solid var(--rule); border-left: 0.9mm solid var(--risk); border-radius: 1mm 4mm 4mm 1mm; padding: 3.5mm 5mm 3mm 5mm; margin: 0 0 4mm; }
+.finding.high { border-left-color: var(--watch); } .finding.medium { border-left-color: #9AA5B5; }
+.finding .head { font: 500 11pt "Outfit"; letter-spacing: -0.02em; display: table; width: 100%; color: var(--ink); }
+.finding .head > span { display: table-cell; vertical-align: baseline; }
+.finding .sev { font: 500 7.8pt "Outfit"; color: var(--risk); text-align: right; white-space: nowrap; letter-spacing: 0; }
+.finding.high .sev { color: var(--watch); } .finding.medium .sev { color: var(--muted); }
+.finding p { margin: 1.2mm 0; font-size: 8.9pt; }
+.finding svg { width: 148mm; height: auto; display: block; margin-top: 1mm; }
 svg { max-width: 100%; }
-.chart { margin: 2mm 0 5mm; break-inside: avoid; } .chart svg { width: 100%; height: auto; }
-.legend { font: 8pt "Bricolage"; color: var(--muted); } .legend b { display: inline-block; width: 8pt; height: 2pt; vertical-align: middle; margin: 0 3pt 0 8pt; }
+.chart { margin: 3mm 0 6mm; break-inside: avoid; } .chart svg { width: 100%; height: auto; }
+.chart .cap { font: 500 8pt "Outfit"; color: var(--ink); margin-bottom: 2mm; }
+.legend { font: 7.6pt "Outfit"; color: var(--muted); margin-left: 3mm; } .legend b { display: inline-block; width: 7pt; height: 7pt; border-radius: 50%; vertical-align: -0.5pt; margin: 0 3pt 0 7pt; }
 .flow { display: table; width: 100%; border-collapse: collapse; margin: 3mm 0 5mm; }
-.flow div { display: table-cell; padding: 3mm 3mm; border-top: 0.6mm solid var(--ink); font: 600 8pt "Bricolage"; color: var(--muted); }
-.flow div b { display: block; font: 700 14pt "Bricolage"; color: var(--ink); letter-spacing: -0.01em; }
-.flow div.bad b { color: var(--rasp); }
-ul.lim li { margin-bottom: 2mm; max-width: 155mm; }
-.pass { color: var(--teal); font-weight: 600; } .fail { color: var(--rasp); font-weight: 700; } .warn { color: var(--amber); font-weight: 700; }
+.flow div { display: table-cell; padding: 3mm 3mm 3mm 0; border-top: 0.35mm solid var(--ink); font: 500 7.6pt "Outfit"; color: var(--muted); }
+.flow div + div { padding-left: 3mm; border-left: 0.2mm solid var(--rule); }
+.flow div b { display: block; margin-top: 1mm; font: 600 14pt "Outfit"; color: var(--ink); letter-spacing: -0.02em; }
+.flow div.bad b { color: var(--risk); }
+ul.lim { padding-left: 4mm; } ul.lim li { margin-bottom: 2.4mm; max-width: 152mm; color: var(--ink2); }
+ul.lim li::marker { color: var(--brass); }
 </style>
 </head>
 <body>
 
 <div class="cover">
-  <div class="brand">ProfitPulse</div>
-  <h1>Where the money is leaking</h1>
-  <div class="lead">{{ headline.lead }}</div>
-  <div class="support">{{ headline.support }}</div>
-  <div class="rule"></div>
+  <div class="veil"></div>
+  <div class="inner">
+    <div class="brand"><svg viewBox="0 0 46 24"><path d="M2 13h9l4-9 6 17 4-8h7" fill="none" stroke="#DCE5F2" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/><circle cx="40" cy="13" r="3.2" fill="#22C55E"/></svg>Profit<span>Pulse</span></div>
+    <div class="kicker">Business report</div>
+    <h1>Where the money is leaking</h1>
+    <div class="lead">{{ headline.lead }}</div>
+    <div class="support">{{ headline.support }}</div>
+    <div class="rule"></div>
+  </div>
+  <div class="kpis">
+    <div>Net sales<b>{{ k('net_revenue') | money(cur) }}</b></div>
+    <div>Gross margin<b>{{ k('gross_margin') | pct }}</b></div>
+    <div class="risk">Leakage per year<b>{{ k('leakage_annualised') | money(cur) }}</b></div>
+  </div>
   <div class="meta">
-    Data from {{ kt('period_start') }} to {{ kt('as_of_date') }}<br>
-    All amounts in {{ cur }}<br>
-    Prepared {{ b.generated_at }}
+    <div>Data period<b>{{ kt('period_start') }} to {{ kt('as_of_date') }}</b></div>
+    <div>Currency<b>{{ cur }}</b></div>
+    <div>Prepared<b>{{ b.generated_at }}</b></div>
   </div>
 </div>
 
@@ -100,8 +130,8 @@ ul.lim li { margin-bottom: 2mm; max-width: 155mm; }
     <tr><td class="l">Detected leakage exposure (estimated)</td><td class="v">{{ k('leakage_total') | money(cur) }}</td></tr>
     <tr><td class="l">Pricing opportunity in low-margin products</td><td class="v">{{ k('margin_opportunity') | money(cur) }}</td></tr>
   </table>
-  <div class="chart"><div class="sans muted" style="font-size:8pt">Monthly net sales and gross profit
-    <span class="legend"><b style="background:#0F7B6C"></b>Net sales<b style="background:#16232C"></b>Gross profit</span></div>{{ charts.revenue | safe }}</div>
+  <div class="chart"><div class="cap">Monthly net sales and gross profit
+    <span class="legend"><b style="background:#3D5A84"></b>Net sales<b style="background:#16223A"></b>Gross profit</span></div>{{ charts.revenue | safe }}</div>
 </section>
 
 <section>
@@ -177,8 +207,8 @@ ul.lim li { margin-bottom: 2mm; max-width: 155mm; }
 <section>
   <h2>Inventory intelligence</h2>
   <p><b>Read this first.</b> The source data contains stock movements but no stock on hand. Everything below is a movement-based proxy: sales velocity, how much of what was sold has been bought back, and how long since the last purchase. These rank products by risk; they do not state how many units are on the shelf.</p>
-  <div class="chart"><div class="sans muted" style="font-size:8pt">Units purchased and sold per month
-    <span class="legend"><b style="background:#0F7B6C"></b>Purchased<b style="background:#16232C"></b>Sold</span></div>{{ charts.movement | safe }}</div>
+  <div class="chart"><div class="cap">Units purchased and sold per month
+    <span class="legend"><b style="background:#3D5A84"></b>Purchased<b style="background:#16223A"></b>Sold</span></div>{{ charts.movement | safe }}</div>
   <p>{{ b.inventory.kpis.stockout_high.value_numeric | int }} products sit at high stockout-risk proxy, {{ b.inventory.kpis.reorder_flags.value_numeric | int }} are flagged for reorder review, {{ b.inventory.kpis.slow_moving.value_numeric | int }} are slow-moving and {{ b.inventory.kpis.dead_stock.value_numeric | int }} look like dead stock.</p>
   <table class="data">
     <tr><th>Product</th><th>Category</th><th>Units/day</th><th>Replenished</th><th>Days since purchase</th><th>Score</th><th class="t">Why</th></tr>

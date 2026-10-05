@@ -43,6 +43,7 @@ const TYPE = {
   PROCUREMENT_OVERPAYMENT: 'Procurement overpayment', LOW_MARGIN_SHORTFALL: 'Low-margin pricing opportunity',
 };
 const TYPE_COLOR = { EXCESS_DISCOUNT: 'var(--rasp)', EXCESS_RETURNS: 'var(--amber)', INVENTORY_DISCREPANCY: 'var(--ink)', PROCUREMENT_OVERPAYMENT: 'var(--teal)', LOW_MARGIN_SHORTFALL: 'var(--muted)' };
+// --teal = steel blue (normal), --rasp = vermilion (risk), --amber = ochre (watch); see the note at the top of app.css.
 
 async function api(path) {
   const r = await fetch(path, { headers: { Accept: 'application/json' } });
@@ -120,7 +121,7 @@ function countUp(el) {
 const count = (v, f, cls = '') => `<span class="cu ${cls}" data-to="${v ?? ''}" data-f="${f}">${(COUNT_FMT[f] || String)(v)}</span>`;
 
 /* ---------------------------------------------------------------- charts (class-styled) */
-/** Every peer as a dot on one line; the flagged one in raspberry with a pulsing ring; shaded typical range; dashed flag line. */
+/** Every peer as a dot on one line; the flagged one in vermilion with a pulsing ring; shaded typical range; dashed flag line. */
 function peerStrip({ points, focus, median, scale, thr, direction, metric, caption }) {
   if (!points?.length) return '';
   const W = 720, H = 112, pad = 44, cy = 58;
@@ -178,7 +179,9 @@ function lineChart({ labels, series, height = 270, width = 860, yFmt = fmt.axis,
       g += `<defs><linearGradient id="${id}${si}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style="stop-color:var(--${s.color});stop-opacity:.30"/><stop offset="1" style="stop-color:var(--${s.color});stop-opacity:0"/></linearGradient></defs>
         <path class="area" d="${d}L${last[0]},${height - pb}L${first[0]},${height - pb}Z" fill="url(#${id}${si})"/>`;
     }
-    g += `<path class="draw s-${s.color}" style="--d:${si}" pathLength="1" d="${d}" fill="none" stroke-width="${s.width || (bare ? 3 : 2.6)}" stroke-linejoin="round" stroke-linecap="round" ${s.dash ? 'stroke-dasharray="6 5"' : ''}/>`;
+    g += s.dash   // a dashed reference line fades in (the draw-in trick would overwrite its dash pattern)
+      ? `<path class="area s-${s.color}" d="${d}" fill="none" stroke-width="${s.width || 2}" stroke-linejoin="round" stroke-linecap="round" stroke-dasharray="6 5"/>`
+      : `<path class="draw s-${s.color}" style="--d:${si}" pathLength="1" d="${d}" fill="none" stroke-width="${s.width || (bare ? 2.6 : 2.2)}" stroke-linejoin="round" stroke-linecap="round"/>`;
   });
   const colW = (width - pl - pr) / Math.max(n - 1, 1);
   labels.forEach((l, i) => {
@@ -190,6 +193,21 @@ function lineChart({ labels, series, height = 270, width = 860, yFmt = fmt.axis,
   if (bare && series[0].values[last] != null) g += `<circle class="f-${series[0].color}" cx="${x(last)}" cy="${y(series[0].values[last])}" r="5.5"/><circle class="ring" style="stroke:var(--${series[0].color})" cx="${x(last)}" cy="${y(series[0].values[last])}" r="5.5"/>`;
   const legend = !bare && series.length > 1 ? `<div class="legend">${series.map(s => `<span><i style="background:var(--${s.color})"></i>${esc(s.name)}</span>`).join('')}</div>` : '';
   return `<div class="chart">${legend}<svg viewBox="0 0 ${width} ${height}" role="img">${g}</svg></div>`;
+}
+
+/** Hero bars: the last 12 months, the latest month lit, the rest in soft slate. */
+function heroBars(rows) {
+  if (!rows.length) return '';
+  const W = 640, H = 220, gap = 10, lb = 30, n = rows.length, bw = (W - gap * (n - 1)) / n;
+  const vals = rows.map(r => r.net_revenue), hi = Math.max(...vals), lo = Math.min(...vals) * 0.55;
+  const y = v => (H - lb) * (1 - (v - lo) / (hi - lo || 1)) + 4;
+  let g = '';
+  rows.forEach((r, i) => {
+    const x = i * (bw + gap), top = y(r.net_revenue), last = i === n - 1;
+    g += `<g data-tip="${esc(fmt.month(r.year_month))}<br>Net sales <b>${esc(fmt.money(r.net_revenue))}</b>"><rect class="hb ${last ? 'on' : ''} grow-y" style="--d:${i}" x="${x.toFixed(1)}" y="${top.toFixed(1)}" width="${bw.toFixed(1)}" height="${(H - lb - top).toFixed(1)}" rx="7"/>
+      <text class="hbl" x="${(x + bw / 2).toFixed(1)}" y="${H - 4}" text-anchor="middle">${esc(fmt.month(r.year_month).split(' ')[0])}</text></g>`;
+  });
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Net sales, last 12 months">${g}</svg>`;
 }
 
 function spark(values, color = 'teal') {
@@ -206,9 +224,11 @@ function hbars(items, { width = 820, rowH = 36, labelW = 150, valFmt = fmt.axis 
   let g = '';
   items.forEach((it, i) => {
     const yy = 3 + i * rowH, w = Math.max((width - labelW - 110) * (it.value / top), 3);
-    g += `<g ${it.tip ? `data-tip="${esc(it.tip)}"` : ''}><text class="tl" x="${labelW - 12}" y="${yy + rowH / 2 + 5}" text-anchor="end" font-size="14.5" font-weight="${it.bold ? 700 : 500}">${esc(it.label)}</text>
-      <rect class="grow f-${it.color || 'teal'}" style="--d:${i}" x="${labelW}" y="${yy + 6}" width="${w}" height="${rowH - 14}" rx="4"/>
-      <text class="ax" x="${labelW + w + 8}" y="${yy + rowH / 2 + 5}" font-size="13.5">${esc(valFmt(it.value))}</text></g>`;
+    const bh = Math.min(rowH - 18, 12);   // slim bars on a faint full-width track
+    g += `<g ${it.tip ? `data-tip="${esc(it.tip)}"` : ''}><text class="tl" x="${labelW - 14}" y="${yy + rowH / 2 + 4.5}" text-anchor="end" font-size="13" font-weight="${it.bold ? 600 : 400}">${esc(it.label)}</text>
+      <rect class="track" x="${labelW}" y="${yy + (rowH - bh) / 2}" width="${width - labelW - 110}" height="${bh}" rx="${bh / 2}"/>
+      <rect class="grow f-${it.color || 'teal'}" style="--d:${i}" x="${labelW}" y="${yy + (rowH - bh) / 2}" width="${w}" height="${bh}" rx="${bh / 2}"/>
+      <text class="ax" x="${width - 98}" y="${yy + rowH / 2 + 4.5}" font-size="12.5">${esc(valFmt(it.value))}</text></g>`;
   });
   return `<div class="chart"><svg viewBox="0 0 ${width} ${H}" role="img">${g}</svg></div>`;
 }
@@ -239,7 +259,9 @@ function tape(segments, cur = CUR) {
   return `<div class="tape" role="img" aria-label="Share of exposure by type">${segments.map((s, i) => `<i class="seg-in" style="--d:${i};flex:${s.value};background:${s.color}" data-tip="<b>${esc(s.label)}</b><br>${esc(fmt.money(s.value, cur))} (${(100 * s.value / total).toFixed(0)}%)"></i>`).join('')}</div>
     <div class="tape-key">${segments.map(s => `<span><i style="background:${s.color}"></i>${esc(s.label)} <b>${esc(fmt.money(s.value, cur))}</b></span>`).join('')}</div>`;
 }
-const heatColor = t => `color-mix(in srgb, color-mix(in srgb, var(--teal) ${Math.round(t * 100)}%, var(--rasp)) 52%, var(--ground))`;
+const heatColor = t => t < 0.5
+  ? `color-mix(in srgb, var(--rasp) ${Math.round((0.5 - t) * 2 * 46)}%, var(--ground-2))`
+  : `color-mix(in srgb, var(--teal) ${Math.round((t - 0.5) * 2 * 40)}%, var(--ground-2))`;
 
 /* ---------------------------------------------------------------- tables (stack into cards on phones) */
 const TABLES = {};
@@ -276,7 +298,8 @@ document.addEventListener('click', e => {
 });
 document.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('tr.pick')) { e.preventDefault(); e.target.click(); } });
 
-const chip = (text, cls) => `<span class="chip ${esc(cls || text)}">${esc(text)}</span>`;
+const sentence = t => { t = String(t ?? ''); return t.charAt(0).toUpperCase() + t.slice(1); };
+const chip = (text, cls) => `<span class="chip ${esc(cls || text)}">${esc(sentence(text))}</span>`;
 const bar = (frac, cls = '') => `<span class="inl-bar ${cls}"><i style="width:${Math.max(0, Math.min(1, frac)) * 100}%"></i></span>`;
 const delta = v => v == null ? 'n/a' : `<span class="${v >= 0 ? 'pos' : 'neg'}">${fmt.spct(v)}</span>`;
 
@@ -290,13 +313,13 @@ const stripOf = (s, a, caption) => peerStrip({ points: s.points, focus: a.entity
 function caseFile(a, { basis, i = 0 } = {}) {
   const sevLabel = { critical: 'Critical', high: 'High', medium: 'Medium' }[a.severity] || a.severity;
   const typeLabel = TYPE[a.leakage_type] || METRIC[a.metric]?.label || a.metric;
-  const cap = s => `All ${s.points.length} ${s.entity}s compared on ${METRIC[a.metric]?.label?.toLowerCase() || a.metric}. Shaded: typical range. Dashed line: where flagging starts.`;
+  const cap = s => `All ${s.points.length} ${s.entity === "branch" ? "branches" : s.entity + "s"} compared on ${METRIC[a.metric]?.label?.toLowerCase() || a.metric}. Shaded: typical range. Dashed line: where flagging starts.`;
   let strip = '';
   if (a.strip) strip = stripOf(a.strip, a, cap(a.strip));
   else if (a.detection_method === 'PEER') strip = `<div data-strip="${esc(a.check_id)}|${esc(a.entity_id)}|${esc(a.metric)}|${a.baseline_value}"></div>`;
   const vs = a.observed_value != null && a.metric
     ? `<div class="versus"><span class="obs">${esc(mf(a.metric, a.observed_value))}</span><span class="vs">${a.detection_method === 'PEER' ? 'against a peer median of' : 'recently, against'} <b>${esc(mf(a.metric, a.baseline_value))}</b></span></div>` : '';
-  return `<article class="case sev-${esc(a.severity)}" data-reveal style="--d:${i}">
+  return `<article class="case spot sev-${esc(a.severity)}" data-reveal style="--d:${i}">
     <div><h3>${esc(a.entity_label)}<small>${esc(typeLabel)}</small></h3>${vs}
       <p class="why">${esc(trimLabel(a))}</p>${strip}${basis ? `<p class="basis">${esc(basis)}</p>` : ''}</div>
     <div class="case-fig">${a.estimated_exposure ? `<span class="amt">${esc(fmt.money(a.estimated_exposure))}</span><span class="per">about ${esc(fmt.money(a.annualised_exposure))} a year</span>` : `<span class="per">Change in behaviour, not sized</span>`}
@@ -308,7 +331,7 @@ async function hydrateStrips(root) {
     try {
       const s = await api(`/api/peer-strip?check=${encodeURIComponent(check)}&entity=${encodeURIComponent(entity)}`);
       const a = { entity_id: entity, metric, baseline_value: +median };
-      el.outerHTML = stripOf(s, a, `All ${s.points.length} ${s.entity}s compared on ${METRIC[metric]?.label?.toLowerCase() || metric}. Shaded: typical range. Dashed line: where flagging starts.`);
+      el.outerHTML = stripOf(s, a, `All ${s.points.length} ${s.entity === "branch" ? "branches" : s.entity + "s"} compared on ${METRIC[metric]?.label?.toLowerCase() || metric}. Shaded: typical range. Dashed line: where flagging starts.`);
     } catch (_) { el.remove(); }
   }
 }
@@ -331,9 +354,10 @@ const VIEWS = {
 
     const hero = `<section class="hero" data-reveal>
       <div><h1 class="lead">${emphasise(d.headline.lead)}</h1><p class="support">${esc(d.headline.support)}</p>
-        <div class="hero-cta"><a class="pill solid" href="#findings">See the findings</a><button class="pill" type="button" id="hero-dl">Download the report</button></div></div>
-      <div class="pulse">${lineChart({ labels, series: [{ name: 'Net sales', color: 'teal', values: monthly.map(m => m.net_revenue) }], bare: true, height: 210, width: 640, tipFmt: x => fmt.money(x) })}
-        <div class="cap"><span>Net sales by month, ${esc(fmt.month(labels[0]))} to ${esc(fmt.month(labels[labels.length - 1]))}</span><span>Last month <b>${esc(fmt.money(last.net_revenue))}</b>${yoy != null ? ` (${fmt.spct(yoy)} on a year ago)` : ''}</span></div></div></section>`;
+        <div class="hero-cta"><a class="pill solid" href="#findings">See the findings <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a><button class="pill" type="button" id="hero-dl">Download the report</button></div></div>
+      <div class="pulse"><div class="ttl"><div><b>Net sales</b><small>Last 12 months</small></div><div class="now">${esc(fmt.money(last.net_revenue))}<small>${yoy != null ? `${esc(fmt.spct(yoy))} on a year ago` : 'last month'}</small></div></div>
+        ${heroBars(monthly.slice(-12))}
+        <div class="cap"><span>Data ${esc(fmt.month(labels[0]))} to ${esc(fmt.month(labels[labels.length - 1]))}</span><span>12-month total <b>${esc(fmt.money(monthly.slice(-12).reduce((a, m) => a + m.net_revenue, 0)))}</b></span></div></div></section>`;
 
     const strip = stripRow([
       kpi('Net sales', count(v('net_revenue'), 'money'), `${esc(fmt.money(v('net_revenue_12m')))} in the last 12 months`, { sp: spark(monthly.map(m => m.net_revenue), 'teal') }),
@@ -348,9 +372,9 @@ const VIEWS = {
 
     const sc = br.scorecards;
     const tiles = section('How the branches compare', 'Each branch scored against the others on margin, discounting, returns, stock loss and growth. Select one for the full breakdown.',
-      `<div class="tiles">${sc.map((r, i) => `<a class="tile ${esc(r.performance_band)}" href="#/branches" data-branch="${esc(r.branch_id)}" style="--d:${i}" data-reveal>
+      `<div class="tiles">${sc.map((r, i) => `<a class="tile spot ${esc(r.performance_band)}" href="#/branches" data-branch="${esc(r.branch_id)}" style="--d:${i}" data-reveal>
         <div class="id">${esc(r.branch_id)}</div><div class="city">${esc(r.city)}</div><div class="sc">${fmt.num(r.performance_score, 0)}</div>
-        <div class="bandname">${esc(r.performance_band)}${r.operational_risk !== 'low' ? `, ${esc(r.operational_risk)} risk` : ''}</div><div class="meter"><i style="width:${r.performance_score}%"></i></div></a>`).join('')}</div>`);
+        <div class="bandname">${esc(sentence(r.performance_band))}${r.operational_risk !== 'low' ? `, ${esc(r.operational_risk)} risk` : ''}</div><div class="meter"><i style="width:${r.performance_score}%"></i></div></a>`).join('')}</div>`);
 
     const mix = section('Where the exposure sits', 'Detected leakage by type. Findings can overlap, so read this as exposure, not as cash that can all be recovered.',
       detected.length ? tape(detected.map(t => ({ label: TYPE[t.leakage_type] || t.leakage_type, value: t.exposure_amount, color: TYPE_COLOR[t.leakage_type] || 'var(--muted)' }))) : '<p class="muted">No detected leakage.</p>');
@@ -627,23 +651,72 @@ const VIEWS = {
 };
 
 const PAGES = [
-  { id: 'overview', name: 'Executive overview', short: 'Overview' }, { id: 'leakage', name: 'Revenue leakage', short: 'Leakage' },
-  { id: 'inventory', name: 'Inventory intelligence', short: 'Stock' }, { id: 'branches', name: 'Branch performance', short: 'Branches' },
-  { id: 'suppliers', name: 'Supplier intelligence', short: 'Suppliers' }, { id: 'products', name: 'Product intelligence', short: 'Products' },
+  { id: 'overview', name: 'Executive overview', rail: 'Overview', short: 'Overview' }, { id: 'leakage', name: 'Revenue leakage', short: 'Leakage' },
+  { id: 'inventory', name: 'Inventory intelligence', rail: 'Inventory', short: 'Stock' }, { id: 'branches', name: 'Branch performance', rail: 'Branches', short: 'Branches' },
+  { id: 'suppliers', name: 'Supplier intelligence', rail: 'Suppliers', short: 'Suppliers' }, { id: 'products', name: 'Product intelligence', rail: 'Products', short: 'Products' },
   { id: 'health', name: 'Pipeline health', short: 'Health' },
 ];
 let counts = {};
 
 function renderNav(active) {
-  $('#nav').innerHTML = PAGES.map(p => {
+  const first = !$('#nav .ind');
+  $('#nav').innerHTML = '<span class="ind" aria-hidden="true"></span>' + PAGES.map(p => {
     const n = counts[p.id];
     const badge = p.id === 'overview' ? '' : p.id === 'health' ? (n ? `<span class="count hot">${n}</span>` : '<span class="count ok">ok</span>') : n != null ? `<span class="count ${n && p.id !== 'inventory' && p.id !== 'products' ? 'hot' : ''}">${fmt.full(n)}</span>` : '';
-    return `<a href="#/${p.id}" ${p.id === active ? 'aria-current="page"' : ''}>${icon(p.id)}<span class="label">${esc(p.name)}</span>${badge}</a>`;
+    return `<a href="#/${p.id}" title="${esc(p.name)}" ${p.id === active ? 'aria-current="page"' : ''}>${icon(p.id)}<span class="label">${esc(p.rail || p.name)}</span>${badge}</a>`;
   }).join('');
   $('#tabbar').innerHTML = PAGES.map(p => `<a href="#/${p.id}" ${p.id === active ? 'aria-current="page"' : ''} aria-label="${esc(p.name)}">${icon(p.id)}<span>${esc(p.short)}</span>${(p.id === 'leakage' || p.id === 'branches' || p.id === 'suppliers') && counts[p.id] ? '<i class="dot"></i>' : ''}</a>`).join('');
+  placeNav(first);
   $('#crumb').textContent = PAGES.find(p => p.id === active)?.name || '';
   document.title = `${PAGES.find(p => p.id === active)?.name || 'Overview'} | ProfitPulse`;
 }
+
+let navPrev = null;
+/** Slide the rail's highlight from the previous page's item to the current one. */
+function placeNav(instant) {
+  const ind = $('#nav .ind'), cur = $('#nav a[aria-current="page"]');
+  if (!ind || !cur || !cur.offsetHeight) return;
+  const go = (el, anim) => { ind.style.transition = anim ? '' : 'none'; ind.style.transform = `translateY(${el.offsetTop}px)`; ind.style.height = `${el.offsetHeight}px`; ind.classList.add('on'); };
+  if (instant || navPrev == null || REDUCED) go(cur, false);
+  else { ind.style.transition = 'none'; ind.style.transform = `translateY(${navPrev}px)`; ind.classList.add('on'); void ind.offsetWidth; requestAnimationFrame(() => go(cur, true)); }
+  navPrev = cur.offsetTop;
+}
+
+/** Segmented controls get a sliding thumb under the pressed button. */
+function placeSeg(seg, instant) {
+  const on = $('button[aria-pressed="true"]', seg), ind = $('.seg-ind', seg);
+  if (!on || !ind) return;
+  ind.style.transition = instant || REDUCED ? 'none' : '';
+  ind.style.width = `${on.offsetWidth}px`;
+  ind.style.transform = `translate(${on.offsetLeft}px, ${on.offsetTop - 3}px)`;
+}
+function armSegs(root = document) {
+  $$('.seg', root).forEach(seg => {
+    if (seg.classList.contains('has-ind')) return;
+    seg.classList.add('has-ind');
+    seg.prepend(Object.assign(document.createElement('span'), { className: 'seg-ind' }));
+    requestAnimationFrame(() => placeSeg(seg, true));
+    seg.addEventListener('click', () => requestAnimationFrame(() => placeSeg(seg)));
+  });
+}
+new MutationObserver(() => armSegs(view)).observe(view, { childList: true, subtree: true });
+addEventListener('resize', () => { $$('.seg.has-ind').forEach(sg => placeSeg(sg, true)); placeNav(true); }, { passive: true });
+
+/** Pointer-led highlight on tiles and case files. */
+document.addEventListener('pointermove', e => {
+  const el = e.target.closest?.('.spot');
+  if (!el) return;
+  const r = el.getBoundingClientRect();
+  el.style.setProperty('--mx', `${e.clientX - r.left}px`);
+  el.style.setProperty('--my', `${e.clientY - r.top}px`);
+}, { passive: true });
+
+/** Thin brass progress line while a page loads. */
+const progress = {
+  el: $('#progress'),
+  start() { if (!this.el) return; this.el.className = ''; void this.el.offsetWidth; this.el.className = 'run'; },
+  done() { if (this.el) this.el.className = 'done'; },
+};
 
 const skeleton = () => `<section><div class="skel" style="height:64px;width:min(620px,90%);margin-bottom:16px"></div><div class="skel" style="height:64px;width:min(440px,70%);margin-bottom:26px"></div><div class="skel" style="height:22px;width:min(520px,80%)"></div></section>
   <section style="margin-top:56px"><div class="skel" style="height:110px"></div></section><section style="margin-top:56px"><div class="skel" style="height:240px"></div></section>`;
@@ -655,6 +728,7 @@ async function route() {
   const token = ++routeToken;
   renderNav(page);
   view.setAttribute('aria-busy', 'true');
+  progress.start();
   view.innerHTML = skeleton();
   let res;
   try { res = await VIEWS[page](); } catch (e) { res = { html: `<div class="empty"><h1>Nothing to show yet</h1><p class="err">${esc(e.message)}</p></div>` }; }
@@ -664,6 +738,8 @@ async function route() {
     armReveal(view);
     if (res.after) res.after();
     view.removeAttribute('aria-busy');
+    progress.done();
+    armSegs(view);
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
   if (document.startViewTransition && !REDUCED) {
@@ -678,8 +754,9 @@ async function download(kind) {
   const name = kind === 'pdf' ? 'PDF' : 'Excel';
   const btns = $$(`[data-name="${name}"]`);
   if (btns[0]?.getAttribute('aria-busy') === 'true') return;
-  const labels = btns.map(b => b.textContent);
-  btns.forEach(b => { b.setAttribute('aria-busy', 'true'); b.textContent = `Preparing ${name}...`; });
+  const labels = btns.map(b => b.innerHTML);
+  const label = b => b.querySelector('span') || b;
+  btns.forEach(b => { b.setAttribute('aria-busy', 'true'); label(b).textContent = `Preparing ${name}...`; });
   try {
     const r = await fetch(`/api/reports/${kind}`);
     if (!r.ok) throw new Error((await r.json().catch(() => ({}))).detail || `The server returned ${r.status}`);
@@ -689,7 +766,7 @@ async function download(kind) {
     document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 10000);
     toast(`${file} downloaded`);
   } catch (err) { toast(`Could not create the ${name}: ${err.message}`, true); }
-  finally { btns.forEach((b, i) => { b.removeAttribute('aria-busy'); b.textContent = labels[i]; }); }
+  finally { btns.forEach((b, i) => { b.removeAttribute('aria-busy'); b.innerHTML = labels[i]; }); }
 }
 function wireChrome() {
   for (const [id, kind] of [['dl-pdf', 'pdf'], ['dl-xlsx', 'xlsx'], ['dl-pdf-2', 'pdf'], ['dl-xlsx-2', 'xlsx']]) {
