@@ -100,7 +100,13 @@ def peer_strip(check_id: str, entity_id: str) -> dict[str, Any] | None:
         return None
     rows = q(f"SELECT {idc} AS id, {metric} AS value, {check['n_col']} AS n FROM analytics.{table} "
              f"WHERE {metric} IS NOT NULL AND {check['n_col']} >= %s", (check["min_n"],))
-    return {"entity": check["entity"], "metric": metric, "points": rows, "focus": entity_id}
+    import numpy as np
+    from ..analytics.detectors import robust_baseline
+    cfg = analytics_config()["anomaly"]
+    median, scale = robust_baseline(np.array([float(r["value"]) for r in rows]), check["min_scale"]) if rows else (None, None)
+    return {"entity": check["entity"], "metric": metric, "points": rows, "focus": entity_id,
+            "median": median, "scale": scale, "threshold_z": check.get("severity_z", cfg["severity_z"])["medium"],
+            "direction": check["direction"]}
 
 
 # ---------------------------------------------------------------- pages

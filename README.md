@@ -38,6 +38,40 @@ A fourth pattern in the brief (abnormal returns on one product) is **not in the 
 10.0% median, ranked 459th of 1,000 (see [docs/DATA_PROFILE.md](docs/DATA_PROFILE.md)). The platform reports that honestly instead of manufacturing a
 finding, and `scripts/make_variant_dataset.py` builds a copy with a real return anomaly to prove the detector would catch it.
 
+## What it looks like
+
+The interface is deliberately not a generic dashboard. Each finding is a **case file**: the figure that matters, a plain-English explanation, and a **peer strip**
+that draws every peer as a dot (the flagged one in red, the shaded band is the typical range, the dashed line is where flagging starts), so you can see *why* it was flagged.
+There are light and dark themes, animated entrances (all disabled under *reduce motion*), and a phone layout with a bottom tab bar.
+
+![Executive overview, light theme](docs/img/overview-light.jpg)
+
+![Executive overview, dark theme](docs/img/overview-dark.jpg)
+
+Case files on the Revenue leakage page. Each shows the size of the problem, the comparison, the explanation and the evidence:
+
+![Case files](docs/img/leakage-case-files.jpg)
+
+Branch performance: a margin-versus-discount scatter, and a scorecard that can be taken apart (select a branch to see where it loses points):
+
+![Branch performance](docs/img/branches.jpg)
+
+Inventory intelligence, with the data limitation stated before any number:
+
+![Inventory intelligence](docs/img/inventory.jpg)
+
+Pipeline health: every event accounted for. This capture was taken after a batch of 997 deliberately faulty messages was sent, so the quarantine count is visible:
+
+![Pipeline health](docs/img/pipeline-health.jpg)
+
+On a phone, tables turn into cards and navigation moves to a bottom tab bar:
+
+![Phone layout](docs/img/mobile.jpg)
+
+The downloadable PDF business report (cover, executive summary and leakage findings shown; 12 pages in total), alongside an 11-sheet Excel workbook:
+
+![PDF business report](docs/img/report-pdf.jpg)
+
 ## Architecture
 
 ```
@@ -54,29 +88,101 @@ tracked offsets; **Spark** does validation, the star schema and the wide aggrega
 analytical model with constraints and a read-only BI role; **Airflow** runs four dependent DAGs chained by data assets; **FastAPI** serves the UI and reports.
 Not used because they were not needed: a Spark cluster, Kafka UI, Celery/Redis, a frontend build.
 
-## Quick start
+## Running it
 
-**Prerequisites:** Docker Desktop (about 8 GB available to Docker), Python 3 (only for the one-time `.env` helper), and the dataset CSV.
+All commands are run from the project folder (`D:\ProfitPulse` on the machine this was built on). They work in PowerShell, Command Prompt or Git Bash,
+except where noted. The system needs Docker Desktop and about 8 GB of memory available to Docker.
 
-```bash
-# 1. Put the dataset in place
-#    data/source/profitpulse_synthetic_dataset.csv
+### Every day: you just switched your PC on
 
-# 2. Create .env with random secrets (never committed)
-python scripts/init_env.py
+Your data is stored in Docker volumes, so it is still there after a restart. You do **not** need to run the pipeline again.
 
-# 3. Start everything (first run builds two images, a few minutes)
+**1.** Start **Docker Desktop** from the Start menu. Wait until it says "Engine running" (this can take a minute).
+
+**2.** Open **PowerShell** and go to the project:
+
+```powershell
+cd D:\ProfitPulse
+```
+
+**3.** Start ProfitPulse (PostgreSQL, Kafka, Airflow, the web app):
+
+```powershell
 docker compose up -d
+```
 
-# 4. Run the whole pipeline from Airflow
+**4.** Check that everything is healthy (it takes about a minute and a half; if something says "starting", wait and run it again):
+
+```powershell
+docker compose ps
+```
+
+**5.** Open the app in your browser:
+
+* http://localhost:18000 : the ProfitPulse UI (with the PDF and Excel downloads)
+* http://localhost:18080 : Airflow (optional, to watch or trigger the pipelines)
+
+When you are done for the day:
+
+```powershell
+docker compose stop        # stops the containers and keeps all data
+```
+
+### Process the data again (re-run the whole pipeline)
+
+Only needed for new data, or to watch the pipeline work. It takes about 5 minutes for the 300,000 events.
+
+```powershell
 docker compose exec airflow-scheduler airflow dags trigger ingestion_pipeline
 ```
 
-The other three DAGs start automatically when the previous one finishes (about 4 to 5 minutes in total for 300k events). Then open:
+Watch it in Airflow at http://localhost:18080 (DAGs list). `ingestion_pipeline` runs first; `transformation_pipeline`, `analytics_pipeline` and
+`data_quality_pipeline` then start by themselves as each one finishes. Refresh the app when `data_quality_pipeline` shows green.
+
+Fault-injection demo (bad messages arriving later, which get quarantined). Re-running the full dataset a second time would only be rejected as duplicates, so use a
+faults-only batch:
+
+```powershell
+docker compose run --rm tools python -m profitpulse publish --limit 20000 --corrupt-rate 0.05 --faults-only
+docker compose exec airflow-scheduler airflow dags trigger ingestion_pipeline --conf '{\"publish_source\": false}'
+```
+
+(That quoting is for PowerShell. In Git Bash use `--conf '{"publish_source": false}'`.)
+
+### First time on a new machine
+
+```powershell
+# 1. Install Docker Desktop and Python 3, then put the dataset here:
+#    data\source\profitpulse_synthetic_dataset.csv
+
+# 2. Create .env with random secrets (never committed to git)
+python scripts\init_env.py
+
+# 3. Build the images and start everything (the first run takes several minutes)
+docker compose up -d --build
+
+# 4. Run the pipeline, then open http://localhost:18000
+docker compose exec airflow-scheduler airflow dags trigger ingestion_pipeline
+```
+
+### Useful commands
+
+```powershell
+docker compose ps                                                                 # what is running
+docker compose logs -f web                                                        # live logs of one service (Ctrl+C to leave)
+docker compose run --rm tools python -m profitpulse dq                            # run the data-quality gates now
+docker compose run --rm tools python -m profitpulse validation-report --docs      # regenerate docs/VALIDATION_REPORT.md
+docker compose run --rm tools python -m pytest tests/unit tests/spark tests/integration   # run the tests (e2e: tests/e2e, after a full run)
+docker compose down -v                                                            # DELETES this project's containers and data
+```
+
+Without Airflow, for development (needs Git Bash): `scripts/run_stages.sh`.
+
+### Where things are
 
 | What | URL | Notes |
 |---|---|---|
-| ProfitPulse UI | http://localhost:18000 | seven pages; PDF and Excel downloads in the left rail |
+| ProfitPulse UI | http://localhost:18000 | seven pages; PDF and Excel downloads |
 | Airflow | http://localhost:18080 | no login (bound to localhost only) |
 | PostgreSQL | `localhost:15432` | database `profitpulse`; use the `pp_reader` role for BI tools |
 | Kafka (host access) | `localhost:19092` | |
@@ -85,46 +191,41 @@ The other three DAGs start automatically when the previous one finishes (about 4
 are all bound to `127.0.0.1`. Change them in `.env` (`PP_*_HOST_PORT`) if they clash on your machine. Container-internal ports stay standard. The stack uses its
 own Compose project, network and volumes (`profitpulse_*`) and never touches other containers.
 
-### Without Airflow (development)
+### If something goes wrong
 
-```bash
-scripts/run_stages.sh                       # replay, ingest, clean, transform, load, features, analytics, publish
-docker compose run --rm tools python -m profitpulse dq        # data-quality gates
-docker compose run --rm tools python -m profitpulse validation-report --docs
-```
+| Symptom | Cause and fix |
+|---|---|
+| `failed to connect to the docker API` | Docker Desktop is not running yet. Start it and wait for "Engine running". |
+| `port is already allocated` | Another program uses one of the ports. Change the matching `PP_*_HOST_PORT` in `.env`, then `docker compose up -d`. |
+| The app says "No analytics yet" | The pipeline has not run on this machine. Trigger `ingestion_pipeline` (see above). |
+| Containers keep restarting, or Spark fails | Docker has too little memory. Docker Desktop, Settings, Resources: give it 8 GB or more. |
+| `docker compose up` says a variable is not set | `.env` is missing. Run `python scripts\init_env.py`. |
+| A DAG shows as paused in Airflow | Turn its toggle on in the DAGs list (new installs start unpaused). |
 
 ### Replay options
 
-```bash
-docker compose run --rm tools python -m profitpulse publish --rate 50 --limit 5000      # simulate 50 events/s
-docker compose run --rm tools python -m profitpulse publish --limit 5000 --corrupt-rate 0.02   # add faulty messages
-docker compose run --rm tools python -m profitpulse publish --limit 20000 --corrupt-rate 0.05 --faults-only   # bad data arrives later
+```powershell
+docker compose run --rm tools python -m profitpulse publish --rate 50 --limit 5000            # simulate 50 events per second
+docker compose run --rm tools python -m profitpulse publish --limit 5000 --corrupt-rate 0.02  # add faulty messages
 ```
 
-The same options are parameters of `ingestion_pipeline` in Airflow. With `--corrupt-rate`, a fraction of events get an *additional* corrupted
-twin (duplicate IDs, bad IDs, negative quantities, mismatched totals, malformed JSON, ...). The originals stay, so totals are unchanged and every
-injected fault must show up in quarantine under its rule; the tests and the end-to-end run assert that.
-
-### Reset
-
-```bash
-docker compose down -v      # removes this project's containers and volumes only
-```
+The same options are parameters of `ingestion_pipeline` in Airflow. With `--corrupt-rate`, a fraction of events get an *additional* corrupted twin
+(duplicate IDs, bad IDs, negative quantities, mismatched totals, malformed JSON, ...). The originals stay, so totals are unchanged and every injected fault must
+show up in quarantine under its rule; the tests and the end-to-end run assert that.
 
 ## The web UI and the business report
 
-Minimal and deliberately not a generic dashboard. Each finding is a *case file*: the explanation in plain sentences, and a **peer strip** (every
-peer drawn as a dot, the flagged one in red, the median as a tick) so you can see why it was flagged. Pages: Executive overview, Revenue leakage,
-Inventory intelligence, Branch performance, Supplier intelligence, Product intelligence, Pipeline health.
+Seven pages: Executive overview, Revenue leakage, Inventory intelligence, Branch performance, Supplier intelligence, Product intelligence, Pipeline health (screenshots above).
+There is no login: ProfitPulse is deployed as one private instance per business, with that business's data, so there are no accounts to create.
 
-**Download Report** (left rail) offers both formats, your choice:
+**Business report** (left rail on a computer, the *Report* button on a phone) offers both formats, your choice:
 
 * **PDF**: a 12-page business report: executive summary, leakage with explanations and peer strips, branch scorecard, suppliers, products, inventory (with the
   data limitation stated up front), pipeline reconciliation, and method and limitations.
 * **Excel**: 11 sheets with filters, frozen headers and number formats (Summary, Findings, Leakage, Branches, Suppliers, Products, Inventory risk, Monthly,
   Data quality, Quarantine, Methodology).
 
-The analytics DAG also renders both into the `pp_reports` volume after each run (scheduled reporting).
+The analytics DAG also renders both into the web service's `pp_web_reports` volume after each run (scheduled reporting).
 
 ## Data model
 
