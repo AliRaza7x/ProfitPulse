@@ -44,33 +44,25 @@ The interface is deliberately not a generic dashboard. Each finding is a **case 
 that draws every peer as a dot (the flagged one in red, the shaded band is the typical range, the dashed line is where flagging starts), so you can see *why* it was flagged.
 There are light and dark themes, animated entrances (all disabled under *reduce motion*), and a phone layout with a bottom tab bar.
 
-![Executive overview, light theme](docs/img/overview-light.jpg)
+![Executive overview, light theme](docs/img/overview-light.png)
 
-![Executive overview, dark theme](docs/img/overview-dark.jpg)
+![Executive overview, dark theme](docs/img/overview-dark.png)
 
 Case files on the Revenue leakage page. Each shows the size of the problem, the comparison, the explanation and the evidence:
 
-![Case files](docs/img/leakage-case-files.jpg)
+![Case files](docs/img/leakage-case-files.png)
 
 Branch performance: a margin-versus-discount scatter, and a scorecard that can be taken apart (select a branch to see where it loses points):
 
-![Branch performance](docs/img/branches.jpg)
+![Branch performance](docs/img/branches.png)
 
 Inventory intelligence, with the data limitation stated before any number:
 
-![Inventory intelligence](docs/img/inventory.jpg)
+![Inventory intelligence](docs/img/inventory.png)
 
 Pipeline health: every event accounted for. This capture was taken after a batch of 997 deliberately faulty messages was sent, so the quarantine count is visible:
 
-![Pipeline health](docs/img/pipeline-health.jpg)
-
-On a phone, tables turn into cards and navigation moves to a bottom tab bar:
-
-![Phone layout](docs/img/mobile.jpg)
-
-The downloadable PDF business report (cover, executive summary and leakage findings shown; 12 pages in total), alongside an 11-sheet Excel workbook:
-
-![PDF business report](docs/img/report-pdf.jpg)
+![Pipeline health](docs/img/pipeline-health.png)
 
 ## Architecture
 
