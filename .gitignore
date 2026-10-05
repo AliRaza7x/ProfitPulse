@@ -1,0 +1,44 @@
+# Secrets / local environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Data: source dataset, derived variants and the Parquet lake are reproducible
+data/source/*
+data/derived/*
+data/lake/
+!data/source/.gitkeep
+!data/derived/.gitkeep
+
+# Generated reports and run artifacts
+reports/
+*.log
+spark-warehouse/
+metastore_db/
+derby.log
+
+# Docker / Airflow runtime state
+airflow/logs/
+airflow/airflow.cfg
+airflow/airflow.db
+airflow/webserver_config.py
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

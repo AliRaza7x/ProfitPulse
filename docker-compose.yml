@@ -1,0 +1,213 @@
+# ProfitPulse local stack.
+# Everything is namespaced under the `profitpulse` compose project (own network,
+# own volumes, `profitpulse-*` containers) so it cannot touch other Docker projects.
+# Host ports bind to 127.0.0.1 only and come from .env (see .env.example).
+
+x-pipeline-env: &pipeline-env
+  POSTGRES_HOST: postgres
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: ${POSTGRES_DB}
+  PP_APP_USER: ${PP_APP_USER}
+  PP_APP_PASSWORD: ${PP_APP_PASSWORD}
+  PP_READER_USER: ${PP_READER_USER}
+  PP_READER_PASSWORD: ${PP_READER_PASSWORD}
+  KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+  KAFKA_TOPIC_PREFIX: ${KAFKA_TOPIC_PREFIX:-pp}
+  SPARK_MASTER: ${SPARK_MASTER:-local[4]}
+  SPARK_DRIVER_MEMORY: ${SPARK_DRIVER_MEMORY:-3g}
+  PP_CURRENCY: ${PP_CURRENCY:-PKR}
+
+x-airflow-common: &airflow-common
+  image: profitpulse/pipeline:local
+  build:
+    context: .
+    dockerfile: docker/airflow/Dockerfile
+  environment: &airflow-env
+    <<: *pipeline-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY}
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-apiserver:8080/execution/
+    AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_ALL_ADMINS: "true"   # local-only stack, bound to 127.0.0.1
+    AIRFLOW__CORE__PARALLELISM: "4"
+    AIRFLOW__CORE__MAX_ACTIVE_TASKS_PER_DAG: "2"
+    AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET}
+    AIRFLOW__API__SECRET_KEY: ${AIRFLOW_API_SECRET_KEY}
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://${AIRFLOW_DB_USER}:${AIRFLOW_DB_PASSWORD}@postgres:5432/${AIRFLOW_DB_NAME}
+    AIRFLOW__DAG_PROCESSOR__REFRESH_INTERVAL: "30"
+  user: "${AIRFLOW_UID:-50000}:0"
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./src:/opt/profitpulse/src
+    - ./config:/opt/profitpulse/config:ro
+    - ./data:/opt/profitpulse/data
+    - ./database:/opt/profitpulse/database:ro
+    - ./docs:/opt/profitpulse/docs
+    - ./tests:/opt/profitpulse/tests
+    - ./pyproject.toml:/opt/profitpulse/pyproject.toml:ro
+    - pp_lake:/opt/profitpulse/lake
+    - pp_reports:/opt/profitpulse/reports
+    - pp_airflow_logs:/opt/airflow/logs
+  depends_on:
+    postgres:
+      condition: service_healthy
+
+services:
+  postgres:
+    image: postgres:17
+    container_name: profitpulse-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PP_APP_USER: ${PP_APP_USER}
+      PP_APP_PASSWORD: ${PP_APP_PASSWORD}
+      PP_READER_USER: ${PP_READER_USER}
+      PP_READER_PASSWORD: ${PP_READER_PASSWORD}
+      AIRFLOW_DB_USER: ${AIRFLOW_DB_USER}
+      AIRFLOW_DB_PASSWORD: ${AIRFLOW_DB_PASSWORD}
+      AIRFLOW_DB_NAME: ${AIRFLOW_DB_NAME}
+    ports:
+      - "127.0.0.1:${PP_POSTGRES_HOST_PORT}:5432"
+    volumes:
+      - pp_pgdata:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  kafka:
+    image: apache/kafka:4.3.1
+    container_name: profitpulse-kafka
+    environment:
+      KAFKA_NODE_ID: "1"
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID}
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: INTERNAL://:9092,EXTERNAL://:19092,CONTROLLER://:9093
+      # INTERNAL: other containers (kafka:9092). EXTERNAL: tools on the Docker host.
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:${PP_KAFKA_HOST_PORT}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: "1"
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: "1"
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: "0"
+      KAFKA_LOG_RETENTION_HOURS: "720"
+      KAFKA_HEAP_OPTS: -Xms512m -Xmx1g
+    ports:
+      - "127.0.0.1:${PP_KAFKA_HOST_PORT}:19092"
+    volumes:
+      - pp_kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:9092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 20
+      start_period: 20s
+
+  # One-shot: apply SQL migrations and create Kafka topics. Safe to re-run.
+  init:
+    <<: *airflow-common
+    container_name: profitpulse-init
+    environment:
+      <<: *airflow-env
+      PP_APP_PASSWORD: ${PP_APP_PASSWORD}
+      PP_READER_USER: ${PP_READER_USER}
+    command: ["bash", "-c", "python -m profitpulse migrate && python -m profitpulse topics ensure"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    restart: "no"
+
+  airflow-init:
+    <<: *airflow-common
+    container_name: profitpulse-airflow-init
+    command: ["bash", "-c", "airflow db migrate"]
+    restart: "no"
+
+  airflow-apiserver:
+    <<: *airflow-common
+    container_name: profitpulse-airflow-apiserver
+    command: ["api-server"]
+    ports:
+      - "127.0.0.1:${PP_AIRFLOW_HOST_PORT}:8080"
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/version"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 40s
+
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: profitpulse-airflow-scheduler
+    command: ["scheduler"]
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+      airflow-apiserver:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  airflow-dag-processor:
+    <<: *airflow-common
+    container_name: profitpulse-airflow-dag-processor
+    command: ["dag-processor"]
+    depends_on:
+      airflow-init:
+        condition: service_completed_successfully
+
+  web:
+    build:
+      context: .
+      dockerfile: docker/web/Dockerfile
+    image: profitpulse/web:local
+    container_name: profitpulse-web
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB}
+      PP_READER_USER: ${PP_READER_USER}
+      PP_READER_PASSWORD: ${PP_READER_PASSWORD}
+      PP_CURRENCY: ${PP_CURRENCY:-PKR}
+      PP_CONFIG_DIR: /app/config
+    ports:
+      - "127.0.0.1:${PP_WEB_HOST_PORT}:8000"
+    volumes:
+      - ./src:/app/src:ro
+      - ./config:/app/config:ro
+      - pp_web_reports:/app/reports      # web-owned: the image's app user can write here
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Interactive tooling: producer, CLI, tests. Not started by `up`.
+  tools:
+    <<: *airflow-common
+    container_name: profitpulse-tools
+    profiles: ["tools"]
+    entrypoint: []
+    command: ["bash"]
+    depends_on: {}
+
+volumes:
+  pp_pgdata:
+  pp_kafka_data:
+  pp_lake:
+  pp_reports:
+  pp_web_reports:
+  pp_airflow_logs:

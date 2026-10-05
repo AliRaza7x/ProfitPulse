@@ -1,0 +1,12 @@
+# Keep the image build context small: source code is bind-mounted at runtime.
+.git
+.env
+.env.*
+data/
+reports/
+**/__pycache__
+**/*.pyc
+.pytest_cache
+airflow/logs
+docs/
+tests/

@@ -1,0 +1,97 @@
+# Analytics and anomaly-detection parameters. Everything a business user might
+# want to tune is here; definitions are documented in docs/METRICS.md.
+
+currency: PKR
+
+# Reference date for "recent" windows. null = latest event date in the data
+# (right for replayed history; set to today's date for live operation).
+as_of_date: null
+
+windows:
+  velocity_days: 90            # sales velocity window
+  replenishment_days: 180      # purchased-vs-sold coverage window
+  growth_months: 6             # growth = last N months vs the N months before
+  temporal_recent_months: 3    # "recent" window for change-vs-baseline checks
+  temporal_baseline_months: 12 # baseline window preceding the recent window
+
+returns:
+  # Returned goods with these reasons are not resaleable: the refund is a full
+  # loss. Other reasons are assumed restockable (profit impact = -original profit).
+  non_restockable_reasons: [Damaged, Quality Issue]
+
+# ---------------------------------------------------------------------------
+# Peer-comparison anomaly checks.
+# Robust z = (x - median(peers)) / (1.4826 * MAD(peers)), with MAD floored at
+# min_scale so that a near-constant peer group cannot produce infinite scores.
+# A finding needs BOTH a high z and a practically meaningful gap (min_abs_effect).
+# ---------------------------------------------------------------------------
+anomaly:
+  severity_z: {medium: 3.5, high: 6.0, critical: 10.0}
+  peer_checks:
+    - {id: branch_discount_rate,  entity: branch,   metric: discount_rate,     direction: high, min_scale: 0.005, min_abs_effect: 0.02, min_n: 200, n_col: sale_events,      exposure_base: gross_sales, leakage_type: EXCESS_DISCOUNT}
+    - {id: branch_return_rate,    entity: branch,   metric: return_rate_units, direction: high, min_scale: 0.005, min_abs_effect: 0.02, min_n: 200, n_col: sale_events,      exposure_base: net_revenue, leakage_type: EXCESS_RETURNS}
+    - {id: branch_adjustment_qty, entity: branch,   metric: adjustment_avg_qty, direction: high, min_scale: 0.25,  min_abs_effect: 2.0,  min_n: 50,  n_col: adjustment_events, exposure_base: adjustment_event_cost, leakage_type: INVENTORY_DISCREPANCY}
+    - {id: branch_damage_rate,    entity: branch,   metric: damage_rate,       direction: high, min_scale: 0.003, min_abs_effect: 0.01, min_n: 200, n_col: sale_events,      exposure_base: cogs, leakage_type: INVENTORY_DISCREPANCY}
+    - {id: branch_margin,         entity: branch,   metric: gross_margin,      direction: low,  min_scale: 0.005, min_abs_effect: 0.02, min_n: 200, n_col: sale_events,      exposure_base: net_revenue}
+    # Product-level checks run on ~1,000 entities, so the bar is higher to keep
+    # the expected number of chance findings near zero.
+    - {id: product_return_rate,   entity: product,  metric: return_rate_units, direction: high, min_scale: 0.01,  min_abs_effect: 0.05, min_n: 100, n_col: sale_events,      exposure_base: net_revenue, leakage_type: EXCESS_RETURNS, severity_z: {medium: 4.5, high: 7.0, critical: 10.0}}
+    - {id: product_discount_rate, entity: product,  metric: discount_rate,     direction: high, min_scale: 0.005, min_abs_effect: 0.03, min_n: 100, n_col: sale_events,      exposure_base: gross_sales, leakage_type: EXCESS_DISCOUNT, severity_z: {medium: 4.5, high: 7.0, critical: 10.0}}
+    - {id: supplier_price_variance, entity: supplier, metric: ppv_pct,         direction: high, min_scale: 0.005, min_abs_effect: 0.02, min_n: 20,  n_col: purchase_events,  exposure_base: purchase_standard_spend, leakage_type: PROCUREMENT_OVERPAYMENT}
+
+  # Change-vs-own-history checks on monthly series: mean of the recent window
+  # vs the mean/std of the baseline months before it.
+  temporal_checks:
+    - {id: branch_discount_shift,  entity: branch,   metric: discount_rate,     direction: high, min_abs_effect: 0.02, min_std: 0.005, z_threshold: 4.0}
+    - {id: branch_return_shift,    entity: branch,   metric: return_rate_units, direction: high, min_abs_effect: 0.02, min_std: 0.01,  z_threshold: 4.0}
+    - {id: branch_margin_shift,    entity: branch,   metric: gross_margin,      direction: low,  min_abs_effect: 0.02, min_std: 0.005, z_threshold: 4.0}
+    - {id: supplier_cost_shift,    entity: supplier, metric: ppv_pct,           direction: high, min_abs_effect: 0.02, min_std: 0.005, z_threshold: 4.0}
+
+# ---------------------------------------------------------------------------
+# Branch performance score (transparent, magnitude-aware).
+# Each component is a robust z-score against the other branches:
+#     z = (value - peer median) / max(1.4826 * MAD, min_scale)
+# oriented so that positive = better, then mapped to 0..1 with
+#     component = 0.5 + 0.5 * clip(z / z_cap, -1, 1)
+# (0 = at least z_cap robust SDs worse than the peer median, 0.5 = typical,
+#  1 = at least z_cap better). score = 100 * sum(weight_i * component_i).
+# Unlike plain percentile ranks, a branch that is far worse than its peers loses
+# far more than one that is marginally worse. Weights must sum to 1.
+# ---------------------------------------------------------------------------
+branch_score:
+  z_cap: 3.0
+  components:
+    gross_margin:      {weight: 0.25, higher_is_better: true,  min_scale: 0.005}
+    discount_rate:     {weight: 0.25, higher_is_better: false, min_scale: 0.005}
+    return_rate_units: {weight: 0.15, higher_is_better: false, min_scale: 0.005}
+    shrink_rate:       {weight: 0.15, higher_is_better: false, min_scale: 0.01}
+    growth_rate:       {weight: 0.20, higher_is_better: true,  min_scale: 0.02}
+  bands: {strong: 45, watch: 30}   # >= strong, >= watch, else weak
+
+# ---------------------------------------------------------------------------
+# Inventory intelligence. The source has no stock-on-hand, so these are
+# movement-based PROXIES (see docs/METRICS.md, "Inventory limitations").
+# ---------------------------------------------------------------------------
+inventory:
+  slow_moving_percentile: 20     # velocity below this percentile within category
+  dead_stock_days_no_sale: 60    # no sale in this many days (product level)
+  reorder_min_days_since_purchase: 45
+  stockout_proxy:
+    weights: {velocity: 0.35, replenishment_gap: 0.40, purchase_recency: 0.25}
+    bands: {high: 75, elevated: 55}
+
+# ---------------------------------------------------------------------------
+# Product intelligence thresholds
+# ---------------------------------------------------------------------------
+product:
+  min_sale_events: 50
+  high_margin_percentile: 90
+  low_margin_percentile: 10
+  declining_growth_threshold: -0.15   # recent vs prior window revenue change
+
+# ---------------------------------------------------------------------------
+# Revenue leakage: low-margin shortfall is measured against the category
+# median margin for products under this percentile within their category.
+# ---------------------------------------------------------------------------
+leakage:
+  low_margin_percentile: 10

@@ -1,0 +1,68 @@
+# Data-quality rules. Rule *logic* lives in src/profitpulse/validation/rules.py;
+# this file holds parameters and the severity of every rule.
+#   REJECT -> row is quarantined (quarantine.dq_failures) and never reaches core.*
+#   WARN   -> row is accepted but the finding is recorded
+
+event_types: [SALE, PURCHASE, RETURN, STOCK_ADJUSTMENT, DAMAGE, PRICE_CHANGE]
+
+return_reasons:
+  - Customer Changed Mind
+  - Damaged
+  - Other
+  - Quality Issue
+  - Wrong Item
+
+id_patterns:
+  event_id: '^EVT[0-9]{7}$'
+  branch_id: '^BR[0-9]{2}$'
+  product_id: '^P[0-9]{4}$'
+  supplier_id: '^SUP[0-9]{3}$'
+
+timestamp:
+  earliest: "2020-01-01"
+  future_tolerance_days: 1
+
+limits:
+  quantity_max: 10000
+  discount_max: 0.95
+  unit_price_max: 10000000
+
+# Reported financial columns must reconcile with quantity x unit values.
+# Source discount_pct is rounded to 4 dp while revenue is not, so a purely
+# absolute tolerance would reject ~80% of valid sales (see docs/DATA_PROFILE.md).
+financial:
+  abs_tolerance: 0.02
+  rel_tolerance: 0.0005     # 0.05% of the expected value
+
+# Share of a product's rows that must agree on category/supplier (and a
+# branch's rows on city) for the dominant value to be treated as master data.
+dimension_consistency:
+  min_agreement: 0.5
+
+severity:
+  MALFORMED_PAYLOAD: REJECT
+  MISSING_EVENT_ID: REJECT
+  INVALID_EVENT_ID_FORMAT: REJECT
+  DUPLICATE_EVENT_ID: REJECT
+  INVALID_EVENT_TYPE: REJECT
+  MISSING_REQUIRED_FIELD: REJECT
+  INVALID_TIMESTAMP: REJECT
+  TIMESTAMP_OUT_OF_RANGE: REJECT
+  INVALID_BRANCH_ID: REJECT
+  INVALID_PRODUCT_ID: REJECT
+  INVALID_SUPPLIER_ID: REJECT
+  INVALID_QUANTITY: REJECT
+  INVALID_UNIT_COST: REJECT
+  INVALID_UNIT_PRICE: REJECT
+  INVALID_DISCOUNT: REJECT
+  INVALID_RETURN_REASON: REJECT
+  PURCHASE_COST_MISMATCH: REJECT
+  REVENUE_MISMATCH: REJECT
+  PROFIT_MISMATCH: REJECT
+  EVENT_VALUE_MISMATCH: REJECT
+  PRODUCT_ATTRIBUTE_CONFLICT: REJECT
+  BRANCH_CITY_CONFLICT: REJECT
+  TOPIC_ROUTE_MISMATCH: WARN
+  UNEXPECTED_RETURN_REASON: WARN
+  NEGATIVE_LIST_MARGIN: WARN
+  POSSIBLE_DUPLICATE_BUSINESS_KEY: WARN

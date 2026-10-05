@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ProfitPulse business report</title>
+<style>
+@font-face { font-family: "Bricolage"; src: url("fonts/BricolageGrotesque.ttf"); font-weight: 200 800; font-stretch: 75% 100%; }
+@font-face { font-family: "Source Serif"; src: url("fonts/SourceSerif4.ttf"); font-weight: 200 900; font-style: normal; }
+@font-face { font-family: "Source Serif"; src: url("fonts/SourceSerif4-Italic.ttf"); font-weight: 200 900; font-style: italic; }
+:root { --ink:#16232C; --teal:#0F7B6C; --rasp:#CF2E5E; --amber:#B07F00; --muted:#5F6E76; --rule:#CBD3CF; --wash:#EDF1EE; }
+@page { size: A4; margin: 22mm 18mm 20mm 18mm;
+  @bottom-left { content: "ProfitPulse business report"; font: 7.5pt "Bricolage"; color: #5F6E76; }
+  @bottom-right { content: "Page " counter(page) " of " counter(pages); font: 7.5pt "Bricolage"; color: #5F6E76; } }
+@page :first { margin: 0; @bottom-left { content: none; } @bottom-right { content: none; } }
+* { box-sizing: border-box; }
+body { font-family: "Source Serif", Georgia, serif; font-size: 9.6pt; line-height: 1.5; color: var(--ink); margin: 0; }
+h1, h2, h3, .sans { font-family: "Bricolage", Arial, sans-serif; }
+h2 { font-size: 17pt; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 3mm; padding-top: 2mm; break-after: avoid; }
+h3 { font-size: 10.5pt; font-weight: 700; margin: 6mm 0 2mm; break-after: avoid; }
+p { margin: 0 0 2.6mm; max-width: 150mm; }
+section { break-before: page; }
+.lede { font-size: 12pt; line-height: 1.45; max-width: 150mm; }
+.muted { color: var(--muted); }
+.note { font-size: 8.4pt; color: var(--muted); max-width: 150mm; }
+
+/* cover */
+.cover { height: 297mm; padding: 26mm 20mm 0 20mm; background: var(--wash); position: relative; }
+.cover .brand { font: 700 11pt "Bricolage"; letter-spacing: 0.01em; }
+.cover h1 { font-size: 40pt; line-height: 1.02; letter-spacing: -0.025em; margin: 38mm 0 6mm; font-weight: 800; max-width: 150mm; }
+.cover .lead { font-size: 14pt; line-height: 1.4; max-width: 150mm; margin-bottom: 4mm; }
+.cover .support { font-size: 11pt; max-width: 150mm; color: var(--muted); }
+.cover .meta { position: absolute; left: 20mm; bottom: 24mm; font: 9pt "Bricolage"; color: var(--muted); line-height: 1.6; }
+.cover .rule { width: 36mm; height: 2.4mm; background: var(--rasp); margin-top: 8mm; }
+
+/* ledger: label ..... value */
+table.ledger { width: 100%; border-collapse: collapse; margin: 2mm 0 4mm; }
+table.ledger td { padding: 0.9mm 0; border-bottom: 0.4mm dotted #9AA7A0; }
+table.ledger td.l { width: 70%; }
+table.ledger td.v { text-align: right; font-weight: 600; font-variant-numeric: lining-nums tabular-nums; }
+table.ledger tr.group td { border: 0; padding-top: 4mm; font: 700 9pt "Bricolage"; color: var(--teal); }
+
+/* data tables */
+table.data { width: 100%; border-collapse: collapse; font-size: 7.9pt; margin: 2mm 0 4mm; font-variant-numeric: lining-nums tabular-nums; }
+table.data th { text-align: right; font: 600 7.4pt "Bricolage"; padding: 1.4mm 1.6mm; border-bottom: 0.5mm solid var(--ink); vertical-align: bottom; }
+table.data td { padding: 1.1mm 1.6mm; border-bottom: 0.25mm solid var(--rule); text-align: right; vertical-align: top; white-space: nowrap; }
+table.data td.t { white-space: normal; }
+table.data th:first-child, table.data td:first-child, table.data .t { text-align: left; }
+table.data tr { break-inside: avoid; }
+.band-weak { color: var(--rasp); font-weight: 700; } .band-watch { color: var(--amber); font-weight: 700; } .band-strong { color: var(--teal); font-weight: 700; }
+
+/* findings */
+.finding { break-inside: avoid; border-left: 1.4mm solid var(--rasp); padding: 0 0 0 4mm; margin: 0 0 6mm; }
+.finding.high { border-color: #D99A0B; } .finding.medium { border-color: #B8C2BD; }
+.finding .head { font: 700 10.5pt "Bricolage"; display: flex; justify-content: space-between; }
+.finding .sev { font: 600 8pt "Bricolage"; color: var(--rasp); }
+.finding.high .sev { color: var(--amber); } .finding.medium .sev { color: var(--muted); }
+.finding p { margin: 1.2mm 0; font-size: 9.4pt; }
+.finding svg { width: 150mm; height: auto; display: block; margin-top: 1mm; }
+svg { max-width: 100%; }
+.chart { margin: 2mm 0 5mm; break-inside: avoid; } .chart svg { width: 100%; height: auto; }
+.legend { font: 8pt "Bricolage"; color: var(--muted); } .legend b { display: inline-block; width: 8pt; height: 2pt; vertical-align: middle; margin: 0 3pt 0 8pt; }
+.flow { display: table; width: 100%; border-collapse: collapse; margin: 3mm 0 5mm; }
+.flow div { display: table-cell; padding: 3mm 3mm; border-top: 0.6mm solid var(--ink); font: 600 8pt "Bricolage"; color: var(--muted); }
+.flow div b { display: block; font: 700 14pt "Bricolage"; color: var(--ink); letter-spacing: -0.01em; }
+.flow div.bad b { color: var(--rasp); }
+ul.lim li { margin-bottom: 2mm; max-width: 155mm; }
+.pass { color: var(--teal); font-weight: 600; } .fail { color: var(--rasp); font-weight: 700; } .warn { color: var(--amber); font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="brand">ProfitPulse</div>
+  <h1>Where the money is leaking</h1>
+  <div class="lead">{{ headline.lead }}</div>
+  <div class="support">{{ headline.support }}</div>
+  <div class="rule"></div>
+  <div class="meta">
+    Data from {{ kt('period_start') }} to {{ kt('as_of_date') }}<br>
+    All amounts in {{ cur }}<br>
+    Prepared {{ b.generated_at }}
+  </div>
+</div>
+
+<section>
+  <h2>Executive summary</h2>
+  {% for para in summary %}<p {% if loop.first %}class="lede"{% endif %}>{{ para }}</p>{% endfor %}
+
+  <table class="ledger">
+    {% set groups = {} %}
+    <tr class="group"><td colspan="2">Headline</td></tr>
+    <tr><td class="l">Net sales</td><td class="v">{{ k('net_revenue') | money(cur) }}</td></tr>
+    <tr><td class="l">Gross profit (margin {{ k('gross_margin') | pct }})</td><td class="v">{{ k('gross_profit') | money(cur) }}</td></tr>
+    <tr><td class="l">Gross profit after returns and damaged stock</td><td class="v">{{ k('adjusted_gross_profit') | money(cur) }}</td></tr>
+    <tr class="group"><td colspan="2">Leakage</td></tr>
+    <tr><td class="l">Discounts given ({{ k('discount_rate') | pct }} of list value)</td><td class="v">{{ k('discount_amount') | money(cur) }}</td></tr>
+    <tr><td class="l">Refunds paid ({{ k('return_rate_units') | pct }} of units sold)</td><td class="v">{{ k('return_value') | money(cur) }}</td></tr>
+    <tr><td class="l">Damaged stock written off, at cost</td><td class="v">{{ k('damage_value') | money(cur) }}</td></tr>
+    <tr><td class="l">Purchases paid above standard cost</td><td class="v">{{ k('price_variance') | money(cur) }}</td></tr>
+    <tr><td class="l">Detected leakage exposure (estimated)</td><td class="v">{{ k('leakage_total') | money(cur) }}</td></tr>
+    <tr><td class="l">Pricing opportunity in low-margin products</td><td class="v">{{ k('margin_opportunity') | money(cur) }}</td></tr>
+  </table>
+  <div class="chart"><div class="sans muted" style="font-size:8pt">Monthly net sales and gross profit
+    <span class="legend"><b style="background:#0F7B6C"></b>Net sales<b style="background:#16232C"></b>Gross profit</span></div>{{ charts.revenue | safe }}</div>
+</section>
+
+<section>
+  <h2>Revenue leakage</h2>
+  <p>Each finding compares one branch, product or supplier with its peers using a robust statistical baseline (median and median absolute deviation, which the outlier itself cannot distort). A finding is raised only when the gap is both statistically strong and large enough to matter commercially.</p>
+  <div class="chart">{{ charts.leakage | safe }}</div>
+  {% for a in findings %}
+  <div class="finding {{ a.severity }}">
+    <div class="head"><span>{{ a.entity_label }}: {{ a.metric_label }}</span>
+      <span class="sev">{{ a.severity }}{% if a.estimated_exposure %}, {{ a.estimated_exposure | money(cur) }}{% endif %}</span></div>
+    <p>{{ a.explanation }}</p>
+    {% if a.strip_svg %}{{ a.strip_svg | safe }}{% endif %}
+  </div>
+  {% endfor %}
+  <p class="note">Exposure is the size of the gap to the peer median applied to the entity's own volume. Findings can overlap (a discounting branch also shows a lower margin), so exposures should not be added blindly. Inventory-discrepancy exposure is an upper bound because stock adjustments carry no direction in the source data.</p>
+</section>
+
+<section>
+  <h2>Branch performance</h2>
+  <p>The performance score is the weighted average of five measures, each compared with the other branches using the same robust statistics as the anomaly checks (typical = 0.5, far worse = 0, far better = 1, capped at three robust standard deviations): {% for key, w in weights.components.items() %}{{ key.replace('_', ' ') }} ({{ (w.weight * 100) | round | int }}%{% if not w.higher_is_better %}, lower is better{% endif %}){% if not loop.last %}, {% endif %}{% endfor %}. A branch that is typical on every measure scores about 50, and a big gap costs far more than a small one. Bands: strong from {{ weights.bands.strong }}, watch from {{ weights.bands.watch }}, otherwise weak.</p>
+  <div class="chart">{{ charts.branch_scores | safe }}</div>
+  <table class="data">
+    <tr><th>Branch</th><th>City</th><th>Net sales</th><th>Margin</th><th>Discount</th><th>Returns</th><th>Shrink</th><th>Growth</th><th>Score</th><th>Band</th><th>Risk</th></tr>
+    {% for r in b.branches.scorecards %}
+    <tr><td>{{ r.branch_id }}</td><td class="t">{{ r.city }}</td><td>{{ r.net_revenue | money(cur) }}</td><td>{{ r.gross_margin | pct }}</td><td>{{ r.discount_rate | pct }}</td>
+        <td>{{ r.return_rate_units | pct }}</td><td>{{ r.shrink_rate | pct }}</td><td>{{ r.growth_rate | signed_pct }}</td><td>{{ r.performance_score | num(0) }}</td>
+        <td class="band-{{ r.performance_band }}">{{ r.performance_band }}</td><td>{{ r.operational_risk }}</td></tr>
+    {% endfor %}
+  </table>
+  <p class="note">Shrink is damaged plus adjusted units as a share of units sold. Growth compares the last six months with the six before. Operational risk follows the most severe anomaly attached to the branch.</p>
+</section>
+
+<section>
+  <h2>Supplier intelligence</h2>
+  <p>Purchase prices are compared with each product's standard cost (the median cost recorded on non-purchase events). "Above standard" is spend minus what the same units would have cost at standard.</p>
+  <table class="data">
+    <tr><th>Supplier</th><th>Products</th><th>Purchases</th><th>Spend</th><th>Above standard</th><th>Variance</th><th>Priced above standard</th><th>Bought above list price</th><th>Return rate of its products</th><th>Risk</th></tr>
+    {% for s in b.suppliers.scorecards[:15] %}
+    <tr><td>{{ s.supplier_id }}</td><td>{{ s.products_supplied }}</td><td>{{ s.purchase_events | full }}</td><td>{{ s.purchase_spend | money(cur) }}</td><td>{{ s.ppv_amount | money(cur) }}</td>
+        <td>{{ s.ppv_pct | signed_pct }}</td><td>{{ s.share_above_standard | pct(0) }}</td><td>{{ s.purchases_above_list }}</td><td>{{ s.product_return_rate | pct }}</td><td>{{ s.risk_level }}</td></tr>
+    {% endfor %}
+  </table>
+  <p class="note">The 15 suppliers with the largest spend above standard are shown; the full list is in the Excel report.</p>
+</section>
+
+<section>
+  <h2>Product intelligence</h2>
+  {% set c = b.products.counts %}
+  <p>Of {{ c.total | full }} products, {{ c.high_margin }} are high-margin, {{ c.low_margin }} low-margin, {{ c.high_return }} have unusually high returns, {{ c.high_discount }} are heavily discounted and {{ c.declining }} are declining. {{ c.problematic }} are flagged as problematic (statistically abnormal, or weak on two or more measures).</p>
+  <h3>Potentially problematic products</h3>
+  <table class="data">
+    <tr><th>Product</th><th>Category</th><th>Net sales</th><th>Margin</th><th>Return</th><th>Discount</th><th class="t">Why flagged</th></tr>
+    {% for p in b.products.problematic[:14] %}
+    <tr><td>{{ p.product_id }}</td><td class="t">{{ p.category }}</td><td>{{ p.net_revenue | money(cur) }}</td><td>{{ p.gross_margin | pct }}</td><td>{{ p.return_rate_units | pct }}</td><td>{{ p.discount_rate | pct }}</td><td class="t">{{ p.problem_reasons }}</td></tr>
+    {% endfor %}
+  </table>
+  <h3>Highest-margin products</h3>
+  <table class="data">
+    <tr><th>Product</th><th>Category</th><th>Net sales</th><th>Margin</th><th>Return</th><th>Discount</th></tr>
+    {% for p in b.products.high_margin[:8] %}
+    <tr><td>{{ p.product_id }}</td><td class="t">{{ p.category }}</td><td>{{ p.net_revenue | money(cur) }}</td><td>{{ p.gross_margin | pct }}</td><td>{{ p.return_rate_units | pct }}</td><td>{{ p.discount_rate | pct }}</td></tr>
+    {% endfor %}
+  </table>
+  <h3>By category</h3>
+  <table class="data">
+    <tr><th>Category</th><th>Products</th><th>Net sales</th><th>Margin</th><th>Return rate</th></tr>
+    {% for r in b.products.category %}
+    <tr><td>{{ r.category }}</td><td>{{ r.products }}</td><td>{{ r.net_revenue | money(cur) }}</td><td>{{ r.gross_margin | pct }}</td><td>{{ r.return_rate | pct }}</td></tr>
+    {% endfor %}
+  </table>
+</section>
+
+<section>
+  <h2>Inventory intelligence</h2>
+  <p><b>Read this first.</b> The source data contains stock movements but no stock on hand. Everything below is a movement-based proxy: sales velocity, how much of what was sold has been bought back, and how long since the last purchase. These rank products by risk; they do not state how many units are on the shelf.</p>
+  <div class="chart"><div class="sans muted" style="font-size:8pt">Units purchased and sold per month
+    <span class="legend"><b style="background:#0F7B6C"></b>Purchased<b style="background:#16232C"></b>Sold</span></div>{{ charts.movement | safe }}</div>
+  <p>{{ b.inventory.kpis.stockout_high.value_numeric | int }} products sit at high stockout-risk proxy, {{ b.inventory.kpis.reorder_flags.value_numeric | int }} are flagged for reorder review, {{ b.inventory.kpis.slow_moving.value_numeric | int }} are slow-moving and {{ b.inventory.kpis.dead_stock.value_numeric | int }} look like dead stock.</p>
+  <table class="data">
+    <tr><th>Product</th><th>Category</th><th>Units/day</th><th>Replenished</th><th>Days since purchase</th><th>Score</th><th class="t">Why</th></tr>
+    {% for r in b.inventory.risk_top[:10] %}
+    <tr><td>{{ r.product_id }}</td><td class="t">{{ r.category }}</td><td>{{ r.velocity_per_day | num(2) }}</td><td>{{ r.replenishment_ratio | pct(0) }}</td><td>{{ r.days_since_last_purchase }}</td><td>{{ r.stockout_risk_score | num(0) }}</td><td class="t">{{ r.explanation }}</td></tr>
+    {% endfor %}
+  </table>
+</section>
+
+<section>
+  <h2>Data quality and pipeline health</h2>
+  {% set f = b.health.flow %}
+  <div class="flow">
+    <div>Published<b>{{ f.published | full }}</b></div>
+    <div>Read from Kafka<b>{{ f.landed | full }}</b></div>
+    <div>Passed validation<b>{{ f.accepted | full }}</b></div>
+    <div class="{{ 'bad' if f.rejected else '' }}">Quarantined<b>{{ f.rejected | full }}</b></div>
+    <div>Stored in warehouse<b>{{ f.stored | full }}</b></div>
+  </div>
+  <p>{{ checks_passed }} of {{ checks_total }} reconciliation and integrity checks passed. Rejected messages are never discarded: each is stored verbatim in the quarantine table with the rule it broke.</p>
+  <table class="data">
+    <tr><th>Layer</th><th class="t">Check</th><th>Status</th><th class="t">Detail</th></tr>
+    {% for c in b.health.checks if c.severity != 'INFO' %}
+    <tr><td class="t">{{ c.layer }}</td><td class="t">{{ c.check_name.replace('_', ' ').lower() }}</td><td class="{{ c.status | lower }}">{{ c.status | lower }}</td><td class="t">{{ c.message }}</td></tr>
+    {% endfor %}
+  </table>
+  <h3>Pipeline stages, latest run</h3>
+  <table class="data">
+    <tr><th>Stage</th><th>Status</th><th>Duration (s)</th><th>Rows in</th><th>Rows out</th><th>Rejected</th></tr>
+    {% for r in b.health.runs %}
+    <tr><td>{{ r.stage }}</td><td>{{ r.status | lower }}</td><td>{{ r.duration_seconds | num(1) }}</td><td>{{ r.rows_in | full }}</td><td>{{ r.rows_out | full }}</td><td>{{ r.rows_rejected | full }}</td></tr>
+    {% endfor %}
+  </table>
+</section>
+
+<section>
+  <h2>Method and limitations</h2>
+  <ul class="lim">{% for l in limitations %}<li>{{ l }}</li>{% endfor %}</ul>
+  <p class="note">Detection rules and thresholds are in config/analytics.yaml; definitions of every metric are in docs/METRICS.md. Nothing in this report is hard-coded to a particular branch, product or supplier.</p>
+</section>
+</body>
+</html>
