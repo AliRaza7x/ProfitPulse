@@ -10,18 +10,6 @@ requires-python = ">=3.11"
 dependencies = [
     "pyyaml>=6",
     "psycopg2-binary>=2.9",
-]
-
-[project.optional-dependencies]
-# Kafka client + Spark + data libs used by the pipeline image
-pipeline = [
-    "confluent-kafka>=2.5",
-    "pyspark==4.0.4",
-    "pandas>=2.2",
-    "numpy>=1.26",
-    "pyarrow>=15",
-]
-web = [
     "fastapi>=0.115",
     "uvicorn>=0.30",
     "jinja2>=3.1",
@@ -29,6 +17,12 @@ web = [
     "openpyxl>=3.1",
     "pandas>=2.2",
     "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+pipeline = [
+    "confluent-kafka>=2.5",
+    "pyspark==4.0.4",
 ]
 dev = ["pytest>=8", "pytest-cov>=5", "ruff>=0.5"]
 
